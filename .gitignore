@@ -1,0 +1,77 @@
+### ── Android ────────────────────────────────────────────────
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Built output
+bin/
+gen/
+out/
+build/
+app/build/
+
+# Gradle caches & wrapper binaries
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio project files
+*.iml
+*.iws
+*.ipr
+.idea/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# NDK
+obj/
+
+# Keystore files — NEVER commit these
+*.jks
+*.keystore
+*.p12
+
+# Signing config if stored in a properties file
+keystore.properties
+release.properties
+
+### ── Secrets & API keys ────────────────────────────────────
+google-services.json
+# Keep msal_config.json tracked but remind devs to fill in their own client_id
+# If you add real secrets to it, uncomment the next line:
+# app/src/main/res/raw/msal_config.json
+
+### ── macOS ─────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+Icon?
+
+### ── IntelliJ / Android Studio ────────────────────────────
+*.class
+*.log
+*.pyc
+*.swp
+.mtj.tmp/
+nbproject/private/
+target/
+atlassian-ide-plugin.xml
+
+# Module / project files
+*.iws
+
+# CMake
+cmake-build-*/
+
+### ── Room schema exports ───────────────────────────────────
+# Keep schemas tracked so migrations are reviewable
+# app/schemas/
+
+### ── Test outputs ─────────────────────────────────────────
+test-results/

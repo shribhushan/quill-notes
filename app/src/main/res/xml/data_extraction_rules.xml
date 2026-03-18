@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Prevent cloud backup of encrypted key material and the database.
+    The database is encrypted at rest; key material lives in Android Keystore
+    and must NOT be backed up or it becomes useless on restore.
+    Users re-sync from their chosen cloud provider instead.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="database" path="quill_notes.db" />
+        <exclude domain="sharedpref" path="quill_notes_keyset_prefs.xml" />
+        <exclude domain="sharedpref" path="quill_notes_keyset_prefs" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="database" path="quill_notes.db" />
+        <exclude domain="sharedpref" path="quill_notes_keyset_prefs.xml" />
+    </device-transfer>
+</data-extraction-rules>

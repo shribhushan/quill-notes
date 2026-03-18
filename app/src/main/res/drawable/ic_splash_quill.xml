@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Minimalist quill pen icon for the splash screen -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer circle background -->
+    <path
+        android:fillColor="#1A1A2E"
+        android:pathData="M54,54m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0" />
+
+    <!-- Quill feather body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M66,28 C66,28 78,32 75,50 C72,68 54,72 46,76 L38,80 C38,80 42,70 48,64 C52,60 60,54 62,44 C64,36 60,30 60,30 Z" />
+
+    <!-- Quill tip / nib -->
+    <path
+        android:fillColor="#CCCCEE"
+        android:pathData="M46,76 L38,80 L42,72 Z" />
+
+    <!-- Ink stroke line -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M42,72 Q50,64 56,52" />
+</vector>

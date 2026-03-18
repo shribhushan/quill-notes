@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Quill feather -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,22 C70,22 84,28 80,50 C76,72 56,76 46,82 L36,88 C36,88 42,76 50,68 C55,63 64,56 67,44 C70,34 64,26 64,26 Z" />
+    <path
+        android:fillColor="#CCCCEE"
+        android:pathData="M46,82 L36,88 L41,74 Z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M41,74 Q51,64 59,48" />
+</vector>

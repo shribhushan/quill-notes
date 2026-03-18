@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude encrypted database and key material from Android Auto Backup -->
+    <exclude domain="database" path="quill_notes.db" />
+    <exclude domain="sharedpref" path="quill_notes_keyset_prefs.xml" />
+    <!-- Allow DataStore preferences (theme, sync settings) to be backed up -->
+    <include domain="file" path="datastore/" />
+</full-backup-content>
