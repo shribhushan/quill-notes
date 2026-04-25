@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -13,8 +15,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.ui.components.EmptyState
 import com.quillnotes.ui.components.NoteCard
 import com.quillnotes.ui.components.moods
+import com.quillnotes.ui.screens.home.SwipeBackground
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,7 +30,24 @@ fun JournalScreen(
     val entries by viewModel.entries.collectAsState()
     val entryCount by viewModel.entryCount.collectAsState()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        viewModel.deleteEvents.collect { deletedId ->
+            val result = snackbarHostState.showSnackbar(
+                message = "Entry deleted",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDelete(deletedId)
+            }
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -70,7 +91,6 @@ fun JournalScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Group entries by date
                 val grouped = entries.groupBy { entry ->
                     SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
                         .format(Date(entry.createdAt))
@@ -88,15 +108,50 @@ fun JournalScreen(
 
                     items(dateEntries, key = { it.id }) { entry ->
                         val moodEmoji = moods.find { it.key == entry.mood }?.emoji ?: ""
-                        NoteCard(
-                            title = "$moodEmoji ${entry.title}".trim(),
-                            content = entry.content,
-                            updatedAt = entry.updatedAt,
-                            isPinned = entry.isPinned,
-                            onClick = { onEntryClick(entry.id) },
-                            onPin = { viewModel.togglePin(entry.id, entry.isPinned) },
-                            onDelete = { viewModel.deleteEntry(entry.id) }
+
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                when (value) {
+                                    SwipeToDismissBoxValue.EndToStart -> {
+                                        viewModel.deleteEntry(entry.id)
+                                        true
+                                    }
+                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                        scope.launch {
+                                            viewModel.togglePin(entry.id, entry.isPinned)
+                                            dismissState.reset()
+                                        }
+                                        false
+                                    }
+                                    else -> false
+                                }
+                            }
                         )
+
+                        SwipeToDismissBox(
+                            state = dismissState,
+                            backgroundContent = {
+                                SwipeBackground(
+                                    direction = dismissState.dismissDirection,
+                                    startIcon = Icons.Outlined.PushPin,
+                                    startLabel = if (entry.isPinned) "Unpin" else "Pin",
+                                    startColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    endIcon = Icons.Outlined.Delete,
+                                    endLabel = "Delete",
+                                    endColor = MaterialTheme.colorScheme.errorContainer
+                                )
+                            }
+                        ) {
+                            NoteCard(
+                                title = "$moodEmoji ${entry.title}".trim(),
+                                content = entry.content,
+                                updatedAt = entry.updatedAt,
+                                isPinned = entry.isPinned,
+                                onClick = { onEntryClick(entry.id) },
+                                onPin = { viewModel.togglePin(entry.id, entry.isPinned) },
+                                onDelete = { viewModel.deleteEntry(entry.id) }
+                            )
+                        }
                     }
                 }
             }

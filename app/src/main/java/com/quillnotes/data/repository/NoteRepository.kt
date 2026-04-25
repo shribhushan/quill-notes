@@ -66,6 +66,33 @@ class NoteRepository @Inject constructor(
         noteDao.togglePin(id, pinned)
     }
 
+    // ── Trash Operations ───────────────────────────────────────
+
+    fun getDeletedNotes(): Flow<List<NoteEntity>> =
+        noteDao.getDeletedNotes().map { notes -> notes.map { decryptNote(it) } }
+
+    suspend fun restoreNote(id: Long) {
+        noteDao.restoreNote(id)
+    }
+
+    suspend fun permanentlyDeleteNote(id: Long) {
+        noteDao.permanentlyDeleteNote(id)
+    }
+
+    suspend fun purgeOldDeletedNotes() {
+        val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
+        noteDao.purgeOldDeletedNotes(cutoff)
+    }
+
+    suspend fun purgeAllDeletedNotes() {
+        noteDao.purgeAllDeletedNotes()
+    }
+
+    // ── Task Reminder Operations ───────────────────────────────
+
+    suspend fun getTasksWithDueDateAfter(millis: Long): List<NoteEntity> =
+        noteDao.getTasksWithDueDateAfter(millis).map { decryptNote(it) }
+
     // ── Sync Operations ────────────────────────────────────────
 
     suspend fun getUnsyncedNotes(): List<NoteEntity> =

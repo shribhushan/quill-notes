@@ -5,7 +5,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +25,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun SettingsScreen(
     onBack: () -> Unit,
     onSyncClick: () -> Unit,
+    onTrashClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val theme by viewModel.theme.collectAsState(initial = "system")
@@ -113,6 +120,18 @@ fun SettingsScreen(
                     title = "Encryption",
                     subtitle = "AES-256-GCM · All notes encrypted at rest",
                     onClick = {}
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Notes ─────────────────────────────────────────
+            SettingsSection("Notes") {
+                SettingsItem(
+                    icon = Icons.Outlined.Delete,
+                    title = "Trash",
+                    subtitle = "View and restore deleted notes",
+                    onClick = onTrashClick
                 )
             }
 

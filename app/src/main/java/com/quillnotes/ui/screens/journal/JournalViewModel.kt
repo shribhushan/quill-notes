@@ -6,9 +6,7 @@ import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.local.entity.NoteType
 import com.quillnotes.data.repository.NoteRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,8 +21,18 @@ class JournalViewModel @Inject constructor(
     val entryCount: StateFlow<Int> = repository.getCountByType(NoteType.JOURNAL)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    private val _deleteEvents = MutableSharedFlow<Long>()
+    val deleteEvents: SharedFlow<Long> = _deleteEvents.asSharedFlow()
+
     fun deleteEntry(id: Long) {
-        viewModelScope.launch { repository.deleteNote(id) }
+        viewModelScope.launch {
+            repository.deleteNote(id)
+            _deleteEvents.emit(id)
+        }
+    }
+
+    fun undoDelete(id: Long) {
+        viewModelScope.launch { repository.restoreNote(id) }
     }
 
     fun togglePin(id: Long, pinned: Boolean) {

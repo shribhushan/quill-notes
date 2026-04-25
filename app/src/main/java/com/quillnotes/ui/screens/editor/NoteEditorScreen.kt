@@ -6,10 +6,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -20,12 +22,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteType
 import com.quillnotes.ui.components.MoodSelector
 import com.quillnotes.ui.components.DatePickerButton
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorScreen(
     noteId: Long?,
     noteType: String,
+    initialContent: String? = null,
     onBack: () -> Unit,
     viewModel: EditorViewModel = hiltViewModel()
 ) {
@@ -33,41 +38,55 @@ fun NoteEditorScreen(
     val contentFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(noteId, noteType) {
-        viewModel.loadNote(noteId, noteType)
+        viewModel.loadNote(noteId, noteType, initialContent)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        when (state.type) {
-                            NoteType.NOTE -> if (state.id != null) "Edit Note" else "New Note"
-                            NoteType.JOURNAL -> if (state.id != null) "Edit Entry" else "New Entry"
-                            NoteType.TASK -> if (state.id != null) "Edit Task" else "New Task"
-                        },
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                    Column {
+                        Text(
+                            when (state.type) {
+                                NoteType.NOTE -> if (state.id != null) "Edit Note" else "New Note"
+                                NoteType.JOURNAL -> if (state.id != null) "Edit Entry" else "New Entry"
+                                NoteType.TASK -> if (state.id != null) "Edit Task" else "New Task"
+                            },
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        SavedStatus(state)
+                    }
                 },
                 navigationIcon = {
-                    IconButton(onClick = {
-                        viewModel.saveNote()
-                        onBack()
-                    }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        viewModel.saveNote()
-                    }) {
+                    IconButton(
+                        onClick = { viewModel.undo() },
+                        enabled = state.canUndo
+                    ) {
                         Icon(
-                            Icons.Outlined.Check,
-                            contentDescription = "Save",
-                            tint = if (state.isSaved)
-                                MaterialTheme.colorScheme.primary
+                            Icons.AutoMirrored.Outlined.Undo,
+                            contentDescription = "Undo",
+                            tint = if (state.canUndo)
+                                MaterialTheme.colorScheme.onSurface
                             else
-                                MaterialTheme.colorScheme.onSurfaceVariant
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.redo() },
+                        enabled = state.canRedo
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.Redo,
+                            contentDescription = "Redo",
+                            tint = if (state.canRedo)
+                                MaterialTheme.colorScheme.onSurface
+                            else
+                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                         )
                     }
                 },
@@ -181,5 +200,32 @@ fun NoteEditorScreen(
 
             Spacer(modifier = Modifier.height(80.dp))
         }
+    }
+}
+
+@Composable
+private fun SavedStatus(state: EditorState) {
+    val text = when {
+        state.isSaving -> "Saving…"
+        state.savedAt != null -> {
+            val secondsAgo = (System.currentTimeMillis() - state.savedAt) / 1000
+            when {
+                secondsAgo < 5 -> "Saved"
+                secondsAgo < 60 -> "Saved · ${secondsAgo}s ago"
+                else -> {
+                    val fmt = SimpleDateFormat("h:mm a", Locale.getDefault())
+                    "Saved · ${fmt.format(Date(state.savedAt))}"
+                }
+            }
+        }
+        else -> null
+    }
+
+    if (text != null) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

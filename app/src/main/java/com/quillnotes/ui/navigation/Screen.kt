@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     data object Planner : Screen("planner")
     data object Settings : Screen("settings")
     data object Sync : Screen("sync")
+    data object Trash : Screen("trash")
 
     data object Editor : Screen("editor?noteId={noteId}&noteType={noteType}") {
         fun createRoute(noteId: Long? = null, noteType: String = "note"): String {
