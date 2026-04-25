@@ -11,8 +11,12 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.USE_FINGERPRINT" />
 
-    <!-- POST_NOTIFICATIONS for sync status (Android 13+) -->
+    <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Task reminders -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- ── Application ──────────────────────────────────────── -->
     <application
@@ -38,6 +42,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Receive text shared from other apps -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Highlighted text → "Save to Quill Notes" -->
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- ── Google Sign-In redirect ───────────────────────── -->
@@ -55,17 +71,26 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <!--
-                    Replace YOUR_BASE64_ENCODED_PACKAGE_SIGNATURE with your actual
-                    signing certificate SHA-1 hash encoded in base64. Run:
-                    keytool -exportcert -alias <key_alias> -keystore <keystore_path> | openssl sha1 -binary | openssl base64
-                -->
                 <data
                     android:host="com.quillnotes"
                     android:path="/YOUR_BASE64_ENCODED_PACKAGE_SIGNATURE"
                     android:scheme="msauth" />
             </intent-filter>
         </activity>
+
+        <!-- ── Task reminder receiver ────────────────────────── -->
+        <receiver
+            android:name=".notifications.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- ── Reschedule alarms after reboot ───────────────── -->
+        <receiver
+            android:name=".notifications.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- ── Sync background worker ────────────────────────── -->
         <service

@@ -29,12 +29,22 @@ class HomeViewModel @Inject constructor(
     val noteCount: StateFlow<Int> = repository.getCountByType(NoteType.NOTE)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
+    private val _deleteEvents = MutableSharedFlow<Long>()
+    val deleteEvents: SharedFlow<Long> = _deleteEvents.asSharedFlow()
+
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
     }
 
     fun deleteNote(id: Long) {
-        viewModelScope.launch { repository.deleteNote(id) }
+        viewModelScope.launch {
+            repository.deleteNote(id)
+            _deleteEvents.emit(id)
+        }
+    }
+
+    fun undoDelete(id: Long) {
+        viewModelScope.launch { repository.restoreNote(id) }
     }
 
     fun togglePin(id: Long, pinned: Boolean) {

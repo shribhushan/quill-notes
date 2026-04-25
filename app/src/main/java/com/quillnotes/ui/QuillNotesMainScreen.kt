@@ -21,10 +21,11 @@ import com.quillnotes.ui.screens.journal.JournalScreen
 import com.quillnotes.ui.screens.planner.PlannerScreen
 import com.quillnotes.ui.screens.settings.SettingsScreen
 import com.quillnotes.ui.screens.sync.SyncScreen
+import com.quillnotes.ui.screens.trash.TrashScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuillNotesMainScreen() {
+fun QuillNotesMainScreen(initialSharedText: String? = null) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -34,6 +35,13 @@ fun QuillNotesMainScreen() {
         Screen.Journal.route,
         Screen.Planner.route
     )
+
+    // Navigate to a new note pre-filled with the shared text on first composition
+    LaunchedEffect(initialSharedText) {
+        if (!initialSharedText.isNullOrBlank()) {
+            navController.navigate(Screen.Editor.createRoute())
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -58,28 +66,16 @@ fun QuillNotesMainScreen() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding),
             enterTransition = {
-                slideIntoContainer(
-                    AnimatedContentTransitionScope.SlideDirection.Start,
-                    tween(300)
-                )
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300))
             },
             exitTransition = {
-                slideOutOfContainer(
-                    AnimatedContentTransitionScope.SlideDirection.Start,
-                    tween(300)
-                )
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Start, tween(300))
             },
             popEnterTransition = {
-                slideIntoContainer(
-                    AnimatedContentTransitionScope.SlideDirection.End,
-                    tween(300)
-                )
+                slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300))
             },
             popExitTransition = {
-                slideOutOfContainer(
-                    AnimatedContentTransitionScope.SlideDirection.End,
-                    tween(300)
-                )
+                slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(300))
             }
         ) {
             composable(Screen.Home.route) {
@@ -136,6 +132,7 @@ fun QuillNotesMainScreen() {
                 NoteEditorScreen(
                     noteId = if (noteId == -1L) null else noteId,
                     noteType = noteType,
+                    initialContent = if (noteId == -1L) initialSharedText else null,
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -143,14 +140,17 @@ fun QuillNotesMainScreen() {
             composable(Screen.Settings.route) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
-                    onSyncClick = { navController.navigate(Screen.Sync.route) }
+                    onSyncClick = { navController.navigate(Screen.Sync.route) },
+                    onTrashClick = { navController.navigate(Screen.Trash.route) }
                 )
             }
 
             composable(Screen.Sync.route) {
-                SyncScreen(
-                    onBack = { navController.popBackStack() }
-                )
+                SyncScreen(onBack = { navController.popBackStack() })
+            }
+
+            composable(Screen.Trash.route) {
+                TrashScreen(onBack = { navController.popBackStack() })
             }
         }
     }
