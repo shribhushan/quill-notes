@@ -114,6 +114,11 @@ dependencies {
         // Surface Duo dual-screen support — unpublished/unresolvable transitive
         // dependency that isn't needed for this app's use of MSAL.
         exclude(group = "com.microsoft.device.display", module = "display-mask")
+        // MSAL's optional telemetry hooks pull in an OpenTelemetry BOM that
+        // Gradle's variant-aware resolution can't consume (published as a
+        // plain dependency instead of an import-scope platform). Not needed
+        // for sign-in/token acquisition.
+        exclude(group = "io.opentelemetry")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
