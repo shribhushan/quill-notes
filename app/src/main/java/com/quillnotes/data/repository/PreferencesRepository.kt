@@ -23,6 +23,7 @@ class PreferencesRepository @Inject constructor(
         val BIOMETRIC_LOCK_KEY = booleanPreferencesKey("biometric_lock")
         val SORT_ORDER_KEY = stringPreferencesKey("sort_order")
         val FONT_SIZE_KEY = stringPreferencesKey("font_size")
+        val NOTES_VIEW_MODE_KEY = stringPreferencesKey("notes_view_mode")
     }
 
     // ── Theme ──────────────────────────────────────────────────
@@ -75,5 +76,14 @@ class PreferencesRepository @Inject constructor(
 
     suspend fun setFontSize(size: String) {
         context.dataStore.edit { it[FONT_SIZE_KEY] = size }
+    }
+
+    // ── Notes View Mode (list / grid) ─────────────────────────────
+    val notesViewMode: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[NOTES_VIEW_MODE_KEY] ?: "list"
+    }
+
+    suspend fun setNotesViewMode(mode: String) {
+        context.dataStore.edit { it[NOTES_VIEW_MODE_KEY] = mode }
     }
 }

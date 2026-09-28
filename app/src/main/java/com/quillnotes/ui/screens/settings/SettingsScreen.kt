@@ -1,5 +1,6 @@
 package com.quillnotes.ui.screens.settings
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.quillnotes.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +67,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -72,7 +75,8 @@ fun SettingsScreen(
                         "system" to "System",
                         "light" to "Light",
                         "dark" to "Dark",
-                        "colorful" to "Colorful"
+                        "colorful" to "Colorful",
+                        "dynamic" to "Dynamic (Material You)"
                     ).forEach { (key, label) ->
                         FilterChip(
                             selected = theme == key,
@@ -162,7 +166,7 @@ fun SettingsScreen(
                 SettingsItem(
                     icon = Icons.Outlined.Info,
                     title = "Quill Notes",
-                    subtitle = "Version 1.0.0",
+                    subtitle = "Version ${BuildConfig.VERSION_NAME}",
                     onClick = {}
                 )
                 SettingsItem(

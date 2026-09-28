@@ -1,18 +1,26 @@
 package com.quillnotes.ui.screens.editor
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
@@ -22,6 +30,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteType
 import com.quillnotes.ui.components.MoodSelector
 import com.quillnotes.ui.components.DatePickerButton
+import com.quillnotes.ui.theme.noteColorPalette
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -183,6 +192,14 @@ fun NoteEditorScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // ── Color Label ──────────────────────────────────────
+            ColorSwatchPicker(
+                selectedColor = state.color,
+                onColorSelected = viewModel::onColorChange
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // ── Tags ───────────────────────────────────────────
             OutlinedTextField(
                 value = state.tags,
@@ -199,6 +216,76 @@ fun NoteEditorScreen(
             )
 
             Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatchPicker(
+    selectedColor: String?,
+    onColorSelected: (String?) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            "Color",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ColorSwatch(
+                color = null,
+                isSelected = selectedColor == null,
+                onClick = { onColorSelected(null) }
+            )
+            noteColorPalette.forEach { (key, color) ->
+                ColorSwatch(
+                    color = color,
+                    isSelected = selectedColor == key,
+                    onClick = { onColorSelected(key) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorSwatch(
+    color: androidx.compose.ui.graphics.Color?,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(color ?: MaterialTheme.colorScheme.surfaceVariant)
+            .border(width = if (isSelected) 2.dp else 1.dp, color = borderColor, shape = CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (color == null) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = "No color",
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else if (isSelected) {
+            Icon(
+                Icons.Filled.Check,
+                contentDescription = "Selected",
+                modifier = Modifier.size(16.dp),
+                tint = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f)
+            )
         }
     }
 }

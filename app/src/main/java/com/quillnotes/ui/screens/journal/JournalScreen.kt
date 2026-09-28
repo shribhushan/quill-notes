@@ -147,6 +147,7 @@ fun JournalScreen(
                                 content = entry.content,
                                 updatedAt = entry.updatedAt,
                                 isPinned = entry.isPinned,
+                                color = entry.color,
                                 onClick = { onEntryClick(entry.id) },
                                 onPin = { viewModel.togglePin(entry.id, entry.isPinned) },
                                 onDelete = { viewModel.deleteEntry(entry.id) }

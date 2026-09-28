@@ -1,6 +1,14 @@
 package com.quillnotes.data.sync
 
 import android.content.Context
+import android.content.Intent
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.common.api.Scope
+import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
 import com.google.api.client.json.gson.GsonFactory
@@ -16,9 +24,12 @@ import javax.inject.Singleton
 /**
  * Google Drive implementation of CloudSyncService.
  *
- * Notes are stored inside a hidden app folder (appDataFolder scope) so they
- * do not pollute the user's visible Drive root. The user authorises via
- * GoogleSignIn using a GoogleAccountCredential; no API key is needed.
+ * Notes are stored inside the hidden app folder (`appDataFolder` scope) so
+ * they never appear in the user's visible Drive. Sign-in is interactive and
+ * driven from the UI: [getSignInIntent] returns the account-picker / consent
+ * Intent to launch via the Activity Result API, and [completeSignIn] takes
+ * the returned Intent data to finish authentication. A previously granted
+ * session is restored silently by [isAuthenticated].
  *
  * Setup required (see publishing guide):
  *  1. Enable Drive API in Google Cloud Console.
@@ -33,37 +44,30 @@ class GoogleDriveSyncService @Inject constructor(
     companion object {
         private const val APP_NAME = "QuillNotes"
         private const val MIME_TYPE = "application/octet-stream"
-        private const val FOLDER_NAME = "QuillNotes"
+    }
+
+    private val driveScope = Scope(DriveScopes.DRIVE_APPDATA)
+
+    private val signInClient: GoogleSignInClient by lazy {
+        val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestScopes(driveScope)
+            .build()
+        GoogleSignIn.getClient(context, options)
     }
 
     private var driveService: Drive? = null
-    private var folderId: String? = null
 
     // ── Authentication ─────────────────────────────────────────
 
-    override suspend fun isAuthenticated(): Boolean = withContext(Dispatchers.IO) {
-        driveService != null
-    }
+    /** Intent to launch (via the Activity Result API) to show the account picker / consent screen. */
+    fun getSignInIntent(): Intent = signInClient.signInIntent
 
-    override suspend fun signIn(): Boolean = withContext(Dispatchers.IO) {
+    /** Completes sign-in using the Intent data returned from [getSignInIntent]'s activity result. */
+    suspend fun completeSignIn(data: Intent?): Boolean = withContext(Dispatchers.IO) {
         try {
-            // In a real app this is driven by the Activity result from
-            // GoogleSignIn.getClient(context, gso).startActivityForResult().
-            // Here we wire up the credential assuming a signed-in account exists.
-            val credential = GoogleAccountCredential.usingOAuth2(
-                context,
-                listOf(DriveScopes.DRIVE_APPDATA)
-            )
-            // credential.selectedAccount would be set from the sign-in result.
-
-            val transport = com.google.api.client.extensions.android.http.AndroidHttp.newCompatibleTransport()
-            val jsonFactory = GsonFactory.getDefaultInstance()
-
-            driveService = Drive.Builder(transport, jsonFactory, credential)
-                .setApplicationName(APP_NAME)
-                .build()
-
-            ensureAppFolder()
+            val account = GoogleSignIn.getSignedInAccountFromIntent(data)
+                .getResult(ApiException::class.java)
+            buildDriveService(account)
             true
         } catch (e: Exception) {
             driveService = null
@@ -71,12 +75,54 @@ class GoogleDriveSyncService @Inject constructor(
         }
     }
 
-    override suspend fun signOut() {
+    override suspend fun isAuthenticated(): Boolean = withContext(Dispatchers.IO) {
+        if (driveService != null) return@withContext true
+        // Restore a previously granted session (e.g. after process death) silently.
+        try {
+            val account = GoogleSignIn.getLastSignedInAccount(context)
+            if (account != null && GoogleSignIn.hasPermissions(account, driveScope)) {
+                buildDriveService(account)
+                true
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            driveService = null
+            false
+        }
+    }
+
+    override suspend fun signIn(): Boolean {
+        // Interactive sign-in needs a foreground Activity to show the account
+        // picker; that flow is driven from the UI via getSignInIntent() /
+        // completeSignIn(). This only attempts a silent restore.
+        return isAuthenticated()
+    }
+
+    override suspend fun signOut() = withContext(Dispatchers.IO) {
         driveService = null
-        folderId = null
+        try {
+            signInClient.signOut()
+        } catch (e: Exception) {
+            // Best effort — local state is already cleared above.
+        }
+        Unit
+    }
+
+    private fun buildDriveService(account: GoogleSignInAccount) {
+        val credential = GoogleAccountCredential.usingOAuth2(context, listOf(DriveScopes.DRIVE_APPDATA))
+        credential.selectedAccount = account.account
+            ?: error("Signed-in Google account has no associated Account handle")
+        val transport = AndroidHttp.newCompatibleTransport()
+        val jsonFactory = GsonFactory.getDefaultInstance()
+        driveService = Drive.Builder(transport, jsonFactory, credential)
+            .setApplicationName(APP_NAME)
+            .build()
     }
 
     // ── File Operations ────────────────────────────────────────
+    // All operations use the "appDataFolder" alias, matching the
+    // DRIVE_APPDATA scope requested above — no visible-Drive folder needed.
 
     override suspend fun uploadFile(
         fileId: String?,
@@ -94,10 +140,10 @@ class GoogleDriveSyncService @Inject constructor(
                     .execute()
                 fileId
             } else {
-                // Create new file in app folder
+                // Create new file in the hidden app folder
                 val meta = File().apply {
                     this.name = name
-                    parents = listOf(folderId ?: "appDataFolder")
+                    parents = listOf("appDataFolder")
                 }
                 val created = service.files()
                     .create(meta, content)
@@ -138,31 +184,6 @@ class GoogleDriveSyncService @Inject constructor(
             result.files.associate { it.id to it.name }
         } catch (e: Exception) {
             emptyMap()
-        }
-    }
-
-    // ── Helpers ────────────────────────────────────────────────
-
-    private suspend fun ensureAppFolder() = withContext(Dispatchers.IO) {
-        if (folderId != null) return@withContext
-        // appDataFolder is a virtual space; no real folder creation needed.
-        // For DRIVE scope (user-visible), create a folder like this:
-        val service = driveService ?: return@withContext
-        val existing = service.files().list()
-            .setQ("mimeType='application/vnd.google-apps.folder' and name='$FOLDER_NAME' and trashed=false")
-            .setSpaces("drive")
-            .setFields("files(id)")
-            .execute()
-            .files
-        folderId = if (existing.isNotEmpty()) {
-            existing[0].id
-        } else {
-            service.files().create(
-                File().apply {
-                    name = FOLDER_NAME
-                    mimeType = "application/vnd.google-apps.folder"
-                }
-            ).setFields("id").execute().id
         }
     }
 }

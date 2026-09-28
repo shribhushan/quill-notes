@@ -1,5 +1,6 @@
 package com.quillnotes.data.sync
 
+import android.content.Intent
 import com.quillnotes.data.encryption.NoteEncryptionManager
 import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.repository.NoteRepository
@@ -32,6 +33,12 @@ class CloudSyncManager @Inject constructor(
     suspend fun disconnect(provider: SyncProvider) {
         serviceFor(provider)?.signOut()
     }
+
+    /** Intent to launch for the interactive Google account picker / consent screen. */
+    fun getGoogleSignInIntent(): Intent = googleDriveService.getSignInIntent()
+
+    /** Completes Google sign-in using the Intent data from [getGoogleSignInIntent]'s activity result. */
+    suspend fun completeGoogleSignIn(data: Intent?): Boolean = googleDriveService.completeSignIn(data)
 
     /**
      * Uploads every un-synced note, encrypting content before it leaves the device.

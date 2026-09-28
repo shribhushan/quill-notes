@@ -1,10 +1,15 @@
 package com.quillnotes.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,10 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.quillnotes.ui.theme.noteColorPalette
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun NoteCard(
     title: String,
@@ -28,21 +34,34 @@ fun NoteCard(
     modifier: Modifier = Modifier,
     isCompleted: Boolean = false,
     showCheckbox: Boolean = false,
-    onToggleComplete: (() -> Unit)? = null
+    onToggleComplete: (() -> Unit)? = null,
+    color: String? = null,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onLongClick: (() -> Unit)? = null
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    val accent = color?.let { noteColorPalette[it] }
+    val baseColor = when {
+        accent != null -> accent.copy(alpha = 0.55f)
+        isPinned -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    }
     val containerColor by animateColorAsState(
-        targetValue = if (isPinned)
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-        else
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else baseColor,
         label = "card_color"
     )
 
     Card(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .then(
+                if (isSelected)
+                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.medium)
+                else Modifier
+            )
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         shape = MaterialTheme.shapes.medium
     ) {
@@ -58,7 +77,19 @@ fun NoteCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
-                    if (showCheckbox) {
+                    if (selectionMode) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
+                            contentDescription = if (isSelected) "Selected" else "Not selected",
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(22.dp),
+                            tint = if (isSelected)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (showCheckbox) {
                         Checkbox(
                             checked = isCompleted,
                             onCheckedChange = { onToggleComplete?.invoke() },
@@ -72,31 +103,33 @@ fun NoteCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Row {
-                    IconButton(
-                        onClick = onPin,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = "Pin",
-                            modifier = Modifier.size(18.dp),
-                            tint = if (isPinned)
-                                MaterialTheme.colorScheme.primary
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    IconButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = "Delete",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                        )
+                if (!selectionMode) {
+                    Row {
+                        IconButton(
+                            onClick = onPin,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = "Pin",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (isPinned)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = "Delete",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                            )
+                        }
                     }
                 }
             }

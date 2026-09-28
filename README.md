@@ -7,12 +7,14 @@ cloud sync, and three beautiful themes.
 
 | Feature | Details |
 |---|---|
-| **Quick Notes** | Distraction-free editor, pin & search |
+| **Quick Notes** | Distraction-free editor, pin & search, color labels, list/grid view |
+| **Multi-Select** | Long-press to select notes, bulk pin/unpin & delete |
+| **Sorting** | Newest, oldest, or title A–Z / Z–A |
 | **Journal** | Daily entries with mood tracking, grouped by date |
 | **Planner** | Tasks with due dates and one-tap completion |
 | **Encryption** | AES-256-GCM via Google Tink, hardware-backed key in Android Keystore |
 | **Cloud Sync** | Google Drive & Microsoft OneDrive (encrypted before upload) |
-| **Themes** | Light · Dark · Colorful · System default |
+| **Themes** | Light · Dark · Colorful · Dynamic (Material You) · System default |
 | **Biometric Lock** | Optional fingerprint / face authentication |
 
 ## Tech Stack

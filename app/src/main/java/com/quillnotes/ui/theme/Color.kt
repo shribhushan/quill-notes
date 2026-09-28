@@ -66,3 +66,14 @@ val MoodNeutral = Color(0xFFFFA726)
 val MoodSad = Color(0xFF42A5F5)
 val MoodAnxious = Color(0xFFEF5350)
 val MoodCalm = Color(0xFF7E57C2)
+
+// ── Note Color Labels ──────────────────────────────────────
+// Keys stored on NoteEntity.color; null/"default" means no accent.
+val noteColorPalette: Map<String, Color> = mapOf(
+    "yellow" to NoteYellow,
+    "green" to NoteGreen,
+    "blue" to NoteBlue,
+    "pink" to NotePink,
+    "purple" to NotePurple,
+    "orange" to NoteOrange
+)

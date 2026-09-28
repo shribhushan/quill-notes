@@ -3,6 +3,7 @@ package com.quillnotes.di
 import android.content.Context
 import androidx.room.Room
 import com.quillnotes.data.encryption.NoteEncryptionManager
+import com.quillnotes.data.local.MIGRATION_1_2
 import com.quillnotes.data.local.QuillDatabase
 import com.quillnotes.data.local.dao.NoteDao
 import dagger.Module
@@ -24,6 +25,7 @@ object AppModule {
             QuillDatabase::class.java,
             "quill_notes.db"
         )
+            .addMigrations(MIGRATION_1_2)
             .fallbackToDestructiveMigration()
             .build()
     }

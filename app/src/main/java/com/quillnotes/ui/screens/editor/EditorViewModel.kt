@@ -23,6 +23,7 @@ data class EditorState(
     val mood: String? = null,
     val dueDate: Long? = null,
     val tags: String = "",
+    val color: String? = null,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val savedAt: Long? = null,
@@ -65,6 +66,7 @@ class EditorViewModel @Inject constructor(
                         mood = note.mood,
                         dueDate = note.dueDate,
                         tags = note.tags,
+                        color = note.color,
                         savedAt = note.updatedAt
                     )
                     undoStack.clear()
@@ -103,6 +105,11 @@ class EditorViewModel @Inject constructor(
 
     fun onTagsChange(tags: String) {
         _state.value = _state.value.copy(tags = tags, savedAt = null)
+        scheduleAutosave()
+    }
+
+    fun onColorChange(color: String?) {
+        _state.value = _state.value.copy(color = color, savedAt = null)
         scheduleAutosave()
     }
 
@@ -150,7 +157,8 @@ class EditorViewModel @Inject constructor(
                 type = current.type,
                 mood = current.mood,
                 dueDate = current.dueDate,
-                tags = current.tags
+                tags = current.tags,
+                color = current.color
             )
 
             if (current.id != null) {

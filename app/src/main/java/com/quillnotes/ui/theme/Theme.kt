@@ -10,6 +10,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.ui.screens.settings.SettingsViewModel
 
+// Dynamic color (Material You) requires Android 12+. minSdk is already 31 (S),
+// so it's always available at runtime — no version gating needed.
+val isDynamicColorAvailable: Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+
 // ── Color Schemes ──────────────────────────────────────────
 
 private val LightColorScheme = lightColorScheme(
@@ -102,11 +106,15 @@ fun QuillNotesTheme(
     val fontSizePreference by settingsViewModel.fontSize.collectAsState(initial = "medium")
 
     val isDarkTheme = isSystemInDarkTheme()
+    val context = LocalContext.current
 
     val colorScheme = when (themePreference) {
         "light" -> LightColorScheme
         "dark" -> DarkColorScheme
         "colorful" -> ColorfulColorScheme
+        "dynamic" -> if (isDynamicColorAvailable) {
+            if (isDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        } else if (isDarkTheme) DarkColorScheme else LightColorScheme
         else -> if (isDarkTheme) DarkColorScheme else LightColorScheme
     }
 

@@ -1,5 +1,6 @@
 package com.quillnotes.ui.screens.sync
 
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.quillnotes.data.repository.NoteRepository
@@ -45,6 +46,27 @@ class SyncViewModel @Inject constructor(
                         unsyncedCount = unsynced
                     )
                 }
+            }
+        }
+    }
+
+    /** Intent to launch (via rememberLauncherForActivityResult) to show Google's account picker. */
+    fun getGoogleSignInIntent(): Intent = syncManager.getGoogleSignInIntent()
+
+    /** Call with the Intent data returned from the Google sign-in activity result. */
+    fun onGoogleSignInResult(data: Intent?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true, message = "Connecting to ${SyncProvider.GOOGLE_DRIVE.displayName}…") }
+            val success = syncManager.completeGoogleSignIn(data)
+            prefsRepository.setSyncProvider(if (success) SyncProvider.GOOGLE_DRIVE.key else SyncProvider.NONE.key)
+            _uiState.update {
+                it.copy(
+                    isSyncing = false,
+                    isConnected = success,
+                    provider = if (success) SyncProvider.GOOGLE_DRIVE else SyncProvider.NONE,
+                    message = if (success) "Connected to ${SyncProvider.GOOGLE_DRIVE.displayName}" else null,
+                    error = if (!success) "Google sign-in was cancelled or failed. Please try again." else null
+                )
             }
         }
     }

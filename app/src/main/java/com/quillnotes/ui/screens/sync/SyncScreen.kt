@@ -1,5 +1,7 @@
 package com.quillnotes.ui.screens.sync
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -24,6 +26,12 @@ fun SyncScreen(
     viewModel: SyncViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsState()
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onGoogleSignInResult(result.data)
+    }
 
     // Auto-clear transient messages after 4 seconds
     LaunchedEffect(state.message) {
@@ -179,7 +187,13 @@ fun SyncScreen(
                     provider = provider,
                     isSelected = state.provider == provider && state.isConnected,
                     isLoading = state.isSyncing && state.provider == provider,
-                    onClick = { viewModel.connectProvider(provider) }
+                    onClick = {
+                        if (provider == SyncProvider.GOOGLE_DRIVE) {
+                            googleSignInLauncher.launch(viewModel.getGoogleSignInIntent())
+                        } else {
+                            viewModel.connectProvider(provider)
+                        }
+                    }
                 )
             }
 
