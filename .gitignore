@@ -12,9 +12,8 @@ out/
 build/
 app/build/
 
-# Gradle caches & wrapper binaries
+# Gradle caches (the wrapper jar itself IS committed — needed for ./gradlew to work)
 .gradle/
-gradle/wrapper/gradle-wrapper.jar
 
 # Android Studio project files
 *.iml
