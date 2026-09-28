@@ -18,7 +18,6 @@ import com.quillnotes.ui.components.NoteCard
 import com.quillnotes.ui.screens.home.SwipeBackground
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +30,6 @@ fun PlannerScreen(
     val taskCount by viewModel.taskCount.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         viewModel.deleteEvents.collect { deletedId ->
@@ -117,16 +115,18 @@ fun PlannerScreen(
                                         true
                                     }
                                     DismissValue.DismissedToEnd -> {
-                                        scope.launch {
-                                            viewModel.toggleComplete(task.id, false)
-                                            dismissState.reset()
-                                        }
+                                        viewModel.toggleComplete(task.id, false)
                                         false
                                     }
                                     else -> false
                                 }
                             }
                         )
+                        LaunchedEffect(dismissState.currentValue) {
+                            if (dismissState.currentValue == DismissValue.DismissedToEnd) {
+                                dismissState.reset()
+                            }
+                        }
 
                         SwipeToDismiss(
                             state = dismissState,
@@ -179,16 +179,18 @@ fun PlannerScreen(
                                         true
                                     }
                                     DismissValue.DismissedToEnd -> {
-                                        scope.launch {
-                                            viewModel.toggleComplete(task.id, true)
-                                            dismissState.reset()
-                                        }
+                                        viewModel.toggleComplete(task.id, true)
                                         false
                                     }
                                     else -> false
                                 }
                             }
                         )
+                        LaunchedEffect(dismissState.currentValue) {
+                            if (dismissState.currentValue == DismissValue.DismissedToEnd) {
+                                dismissState.reset()
+                            }
+                        }
 
                         SwipeToDismiss(
                             state = dismissState,

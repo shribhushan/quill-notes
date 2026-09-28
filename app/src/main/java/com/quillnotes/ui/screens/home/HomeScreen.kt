@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.ui.components.NoteCard
 import com.quillnotes.ui.components.EmptyState
-import kotlinx.coroutines.launch
 
 private val sortOptions = listOf(
     "updated" to "Newest first",
@@ -59,7 +58,6 @@ fun HomeScreen(
     val searchFocusRequester = remember { FocusRequester() }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     BackHandler(enabled = isSelectionMode) { viewModel.clearSelection() }
 
@@ -302,16 +300,18 @@ fun HomeScreen(
                                         true
                                     }
                                     DismissValue.DismissedToEnd -> {
-                                        scope.launch {
-                                            viewModel.togglePin(note.id, note.isPinned)
-                                            dismissState.reset()
-                                        }
-                                        false // don't dismiss — reset after pin
+                                        viewModel.togglePin(note.id, note.isPinned)
+                                        false // don't dismiss — reset below
                                     }
                                     else -> false
                                 }
                             }
                         )
+                        LaunchedEffect(dismissState.currentValue) {
+                            if (dismissState.currentValue == DismissValue.DismissedToEnd) {
+                                dismissState.reset()
+                            }
+                        }
 
                         SwipeToDismiss(
                             state = dismissState,

@@ -18,7 +18,6 @@ import com.quillnotes.ui.components.moods
 import com.quillnotes.ui.screens.home.SwipeBackground
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +30,6 @@ fun JournalScreen(
     val entryCount by viewModel.entryCount.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         viewModel.deleteEvents.collect { deletedId ->
@@ -117,16 +115,18 @@ fun JournalScreen(
                                         true
                                     }
                                     DismissValue.DismissedToEnd -> {
-                                        scope.launch {
-                                            viewModel.togglePin(entry.id, entry.isPinned)
-                                            dismissState.reset()
-                                        }
+                                        viewModel.togglePin(entry.id, entry.isPinned)
                                         false
                                     }
                                     else -> false
                                 }
                             }
                         )
+                        LaunchedEffect(dismissState.currentValue) {
+                            if (dismissState.currentValue == DismissValue.DismissedToEnd) {
+                                dismissState.reset()
+                            }
+                        }
 
                         SwipeToDismiss(
                             state = dismissState,
