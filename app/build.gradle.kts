@@ -62,6 +62,18 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Several transitive libraries (Apache HttpComponents pulled in via
+            // the Google API client / MSAL, etc.) ship duplicate META-INF
+            // metadata files that the resource merger can't reconcile on its own.
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.kotlin_module"
         }
     }
 }
