@@ -8,9 +8,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
-import com.google.api.client.extensions.android.http.AndroidHttp
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.http.ByteArrayContent
+import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.drive.DriveScopes
@@ -113,7 +113,7 @@ class GoogleDriveSyncService @Inject constructor(
         val credential = GoogleAccountCredential.usingOAuth2(context, listOf(DriveScopes.DRIVE_APPDATA))
         credential.selectedAccount = account.account
             ?: error("Signed-in Google account has no associated Account handle")
-        val transport = AndroidHttp.newCompatibleTransport()
+        val transport = NetHttpTransport()
         val jsonFactory = GsonFactory.getDefaultInstance()
         driveService = Drive.Builder(transport, jsonFactory, credential)
             .setApplicationName(APP_NAME)
@@ -165,12 +165,13 @@ class GoogleDriveSyncService @Inject constructor(
         }
     }
 
-    override suspend fun deleteFile(fileId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteFile(fileId: String): Unit = withContext(Dispatchers.IO) {
         try {
             driveService?.files()?.delete(fileId)?.execute()
         } catch (e: Exception) {
             // Swallow — best effort
         }
+        Unit
     }
 
     override suspend fun listFiles(): Map<String, String> = withContext(Dispatchers.IO) {

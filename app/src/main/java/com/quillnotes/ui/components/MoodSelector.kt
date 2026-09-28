@@ -26,6 +26,7 @@ val moods = listOf(
     MoodOption("Sad", "\uD83D\uDE14", "sad", MoodSad)
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoodSelector(
     selectedMood: String?,

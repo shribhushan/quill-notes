@@ -109,14 +109,14 @@ fun JournalScreen(
                     items(dateEntries, key = { it.id }) { entry ->
                         val moodEmoji = moods.find { it.key == entry.mood }?.emoji ?: ""
 
-                        val dismissState = rememberSwipeToDismissBoxState(
+                        val dismissState = rememberDismissState(
                             confirmValueChange = { value ->
                                 when (value) {
-                                    SwipeToDismissBoxValue.EndToStart -> {
+                                    DismissValue.DismissedToStart -> {
                                         viewModel.deleteEntry(entry.id)
                                         true
                                     }
-                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                    DismissValue.DismissedToEnd -> {
                                         scope.launch {
                                             viewModel.togglePin(entry.id, entry.isPinned)
                                             dismissState.reset()
@@ -128,9 +128,9 @@ fun JournalScreen(
                             }
                         )
 
-                        SwipeToDismissBox(
+                        SwipeToDismiss(
                             state = dismissState,
-                            backgroundContent = {
+                            background = {
                                 SwipeBackground(
                                     direction = dismissState.dismissDirection,
                                     startIcon = Icons.Outlined.PushPin,
@@ -140,19 +140,20 @@ fun JournalScreen(
                                     endLabel = "Delete",
                                     endColor = MaterialTheme.colorScheme.errorContainer
                                 )
+                            },
+                            dismissContent = {
+                                NoteCard(
+                                    title = "$moodEmoji ${entry.title}".trim(),
+                                    content = entry.content,
+                                    updatedAt = entry.updatedAt,
+                                    isPinned = entry.isPinned,
+                                    color = entry.color,
+                                    onClick = { onEntryClick(entry.id) },
+                                    onPin = { viewModel.togglePin(entry.id, entry.isPinned) },
+                                    onDelete = { viewModel.deleteEntry(entry.id) }
+                                )
                             }
-                        ) {
-                            NoteCard(
-                                title = "$moodEmoji ${entry.title}".trim(),
-                                content = entry.content,
-                                updatedAt = entry.updatedAt,
-                                isPinned = entry.isPinned,
-                                color = entry.color,
-                                onClick = { onEntryClick(entry.id) },
-                                onPin = { viewModel.togglePin(entry.id, entry.isPinned) },
-                                onDelete = { viewModel.deleteEntry(entry.id) }
-                            )
-                        }
+                        )
                     }
                 }
             }

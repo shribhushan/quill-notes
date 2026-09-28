@@ -157,7 +157,7 @@ fun NoteEditorScreen(
                 )
             }
 
-            HorizontalDivider(
+            Divider(
                 modifier = Modifier.padding(vertical = 12.dp),
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
             )

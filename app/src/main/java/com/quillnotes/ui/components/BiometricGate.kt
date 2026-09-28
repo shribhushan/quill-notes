@@ -1,6 +1,5 @@
 package com.quillnotes.ui.components
 
-import androidx.activity.ComponentActivity
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -11,13 +10,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.quillnotes.ui.screens.settings.SettingsViewModel
 
 @Composable
@@ -76,7 +76,7 @@ private fun triggerBiometricPrompt(
     context: android.content.Context,
     onSuccess: () -> Unit
 ) {
-    val activity = context as? ComponentActivity ?: return
+    val activity = context as? FragmentActivity ?: return
     val executor = ContextCompat.getMainExecutor(context)
 
     val callback = object : BiometricPrompt.AuthenticationCallback() {

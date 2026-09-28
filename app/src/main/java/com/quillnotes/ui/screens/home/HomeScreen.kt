@@ -294,14 +294,14 @@ fun HomeScreen(
                             onDelete = { viewModel.deleteNote(note.id) }
                         )
                     } else {
-                        val dismissState = rememberSwipeToDismissBoxState(
+                        val dismissState = rememberDismissState(
                             confirmValueChange = { value ->
                                 when (value) {
-                                    SwipeToDismissBoxValue.EndToStart -> {
+                                    DismissValue.DismissedToStart -> {
                                         viewModel.deleteNote(note.id)
                                         true
                                     }
-                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                    DismissValue.DismissedToEnd -> {
                                         scope.launch {
                                             viewModel.togglePin(note.id, note.isPinned)
                                             dismissState.reset()
@@ -313,9 +313,9 @@ fun HomeScreen(
                             }
                         )
 
-                        SwipeToDismissBox(
+                        SwipeToDismiss(
                             state = dismissState,
-                            backgroundContent = {
+                            background = {
                                 SwipeBackground(
                                     direction = dismissState.dismissDirection,
                                     startIcon = Icons.Outlined.PushPin,
@@ -325,20 +325,21 @@ fun HomeScreen(
                                     endLabel = "Delete",
                                     endColor = MaterialTheme.colorScheme.errorContainer
                                 )
+                            },
+                            dismissContent = {
+                                NoteCard(
+                                    title = note.title,
+                                    content = note.content,
+                                    updatedAt = note.updatedAt,
+                                    isPinned = note.isPinned,
+                                    color = note.color,
+                                    onClick = { onNoteClick(note.id) },
+                                    onLongClick = { viewModel.startSelection(note.id) },
+                                    onPin = { viewModel.togglePin(note.id, note.isPinned) },
+                                    onDelete = { viewModel.deleteNote(note.id) }
+                                )
                             }
-                        ) {
-                            NoteCard(
-                                title = note.title,
-                                content = note.content,
-                                updatedAt = note.updatedAt,
-                                isPinned = note.isPinned,
-                                color = note.color,
-                                onClick = { onNoteClick(note.id) },
-                                onLongClick = { viewModel.startSelection(note.id) },
-                                onPin = { viewModel.togglePin(note.id, note.isPinned) },
-                                onDelete = { viewModel.deleteNote(note.id) }
-                            )
-                        }
+                        )
                     }
                 }
             }
@@ -346,9 +347,10 @@ fun HomeScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeBackground(
-    direction: SwipeToDismissBoxValue?,
+    direction: DismissDirection?,
     startIcon: androidx.compose.ui.graphics.vector.ImageVector,
     startLabel: String,
     startColor: Color,
@@ -356,8 +358,8 @@ fun SwipeBackground(
     endLabel: String,
     endColor: Color
 ) {
-    if (direction == null || direction == SwipeToDismissBoxValue.Settled) return
-    val isStartToEnd = direction == SwipeToDismissBoxValue.StartToEnd
+    if (direction == null) return
+    val isStartToEnd = direction == DismissDirection.StartToEnd
     val color = if (isStartToEnd) startColor else endColor
     val icon = if (isStartToEnd) startIcon else endIcon
     val label = if (isStartToEnd) startLabel else endLabel

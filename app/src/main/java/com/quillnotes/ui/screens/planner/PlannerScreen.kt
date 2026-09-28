@@ -109,14 +109,14 @@ fun PlannerScreen(
                             " · Due ${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(date))}"
                         } ?: ""
 
-                        val dismissState = rememberSwipeToDismissBoxState(
+                        val dismissState = rememberDismissState(
                             confirmValueChange = { value ->
                                 when (value) {
-                                    SwipeToDismissBoxValue.EndToStart -> {
+                                    DismissValue.DismissedToStart -> {
                                         viewModel.deleteTask(task.id)
                                         true
                                     }
-                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                    DismissValue.DismissedToEnd -> {
                                         scope.launch {
                                             viewModel.toggleComplete(task.id, false)
                                             dismissState.reset()
@@ -128,9 +128,9 @@ fun PlannerScreen(
                             }
                         )
 
-                        SwipeToDismissBox(
+                        SwipeToDismiss(
                             state = dismissState,
-                            backgroundContent = {
+                            background = {
                                 SwipeBackground(
                                     direction = dismissState.dismissDirection,
                                     startIcon = Icons.Outlined.Done,
@@ -140,22 +140,23 @@ fun PlannerScreen(
                                     endLabel = "Delete",
                                     endColor = MaterialTheme.colorScheme.errorContainer
                                 )
+                            },
+                            dismissContent = {
+                                NoteCard(
+                                    title = task.title,
+                                    content = task.content + dueLabel,
+                                    updatedAt = task.updatedAt,
+                                    isPinned = task.isPinned,
+                                    color = task.color,
+                                    isCompleted = false,
+                                    showCheckbox = true,
+                                    onClick = { onTaskClick(task.id) },
+                                    onPin = { viewModel.togglePin(task.id, task.isPinned) },
+                                    onDelete = { viewModel.deleteTask(task.id) },
+                                    onToggleComplete = { viewModel.toggleComplete(task.id, false) }
+                                )
                             }
-                        ) {
-                            NoteCard(
-                                title = task.title,
-                                content = task.content + dueLabel,
-                                updatedAt = task.updatedAt,
-                                isPinned = task.isPinned,
-                                color = task.color,
-                                isCompleted = false,
-                                showCheckbox = true,
-                                onClick = { onTaskClick(task.id) },
-                                onPin = { viewModel.togglePin(task.id, task.isPinned) },
-                                onDelete = { viewModel.deleteTask(task.id) },
-                                onToggleComplete = { viewModel.toggleComplete(task.id, false) }
-                            )
-                        }
+                        )
                     }
                 }
 
@@ -170,14 +171,14 @@ fun PlannerScreen(
                     }
 
                     items(completedTasks, key = { it.id }) { task ->
-                        val dismissState = rememberSwipeToDismissBoxState(
+                        val dismissState = rememberDismissState(
                             confirmValueChange = { value ->
                                 when (value) {
-                                    SwipeToDismissBoxValue.EndToStart -> {
+                                    DismissValue.DismissedToStart -> {
                                         viewModel.deleteTask(task.id)
                                         true
                                     }
-                                    SwipeToDismissBoxValue.StartToEnd -> {
+                                    DismissValue.DismissedToEnd -> {
                                         scope.launch {
                                             viewModel.toggleComplete(task.id, true)
                                             dismissState.reset()
@@ -189,9 +190,9 @@ fun PlannerScreen(
                             }
                         )
 
-                        SwipeToDismissBox(
+                        SwipeToDismiss(
                             state = dismissState,
-                            backgroundContent = {
+                            background = {
                                 SwipeBackground(
                                     direction = dismissState.dismissDirection,
                                     startIcon = Icons.Outlined.PushPin,
@@ -201,22 +202,23 @@ fun PlannerScreen(
                                     endLabel = "Delete",
                                     endColor = MaterialTheme.colorScheme.errorContainer
                                 )
+                            },
+                            dismissContent = {
+                                NoteCard(
+                                    title = task.title,
+                                    content = task.content,
+                                    updatedAt = task.updatedAt,
+                                    isPinned = task.isPinned,
+                                    color = task.color,
+                                    isCompleted = true,
+                                    showCheckbox = true,
+                                    onClick = { onTaskClick(task.id) },
+                                    onPin = { viewModel.togglePin(task.id, task.isPinned) },
+                                    onDelete = { viewModel.deleteTask(task.id) },
+                                    onToggleComplete = { viewModel.toggleComplete(task.id, true) }
+                                )
                             }
-                        ) {
-                            NoteCard(
-                                title = task.title,
-                                content = task.content,
-                                updatedAt = task.updatedAt,
-                                isPinned = task.isPinned,
-                                color = task.color,
-                                isCompleted = true,
-                                showCheckbox = true,
-                                onClick = { onTaskClick(task.id) },
-                                onPin = { viewModel.togglePin(task.id, task.isPinned) },
-                                onDelete = { viewModel.deleteTask(task.id) },
-                                onToggleComplete = { viewModel.toggleComplete(task.id, true) }
-                            )
-                        }
+                        )
                     }
                 }
             }
