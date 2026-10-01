@@ -1,0 +1,7 @@
+Quill Notes — APKs
+Built from commit: 057f76c83fc12d2a06f27994510f942fa524f233
+Workflow run:      36887440743
+Built at (UTC):    2026-10-01T15:55:44Z
+
+quill-notes-debug.apk    - full debug build (unminified)
+quill-notes-sideload.apk - debug-signed but minified/shrunk, smaller for easy install
