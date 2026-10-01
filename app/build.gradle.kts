@@ -39,6 +39,20 @@ android {
         debug {
             isDebuggable = true
         }
+        // Debug-signed but minified/shrunk, purely so a sideload-sized APK
+        // (the unminified debug build pulls in the full bytecode of every
+        // dependency — Drive API, MSAL, Play Services Auth — at ~70MB) can be
+        // installed for manual testing without a release signing setup.
+        create("sideload") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
     }
 
     compileOptions {

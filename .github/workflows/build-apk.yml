@@ -44,22 +44,27 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Build APKs
+        run: ./gradlew assembleDebug assembleSideload --stacktrace
 
-      - name: Upload APK as workflow artifact
+      - name: Upload APKs as workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: quill-notes-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: quill-notes-apks
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/sideload/*.apk
           retention-days: 30
 
-      - name: Publish APK to apk-builds branch
+      - name: Publish APKs to apk-builds branch
         run: |
-          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
-          echo "Built: $APK_PATH"
+          DEBUG_APK=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          SIDELOAD_APK=$(find app/build/outputs/apk/sideload -name "*.apk" | head -n 1)
+          echo "Debug APK:    $DEBUG_APK ($(du -h "$DEBUG_APK" | cut -f1))"
+          echo "Sideload APK: $SIDELOAD_APK ($(du -h "$SIDELOAD_APK" | cut -f1))"
           mkdir -p /tmp/apk-out
-          cp "$APK_PATH" /tmp/apk-out/quill-notes-debug.apk
+          cp "$DEBUG_APK" /tmp/apk-out/quill-notes-debug.apk
+          cp "$SIDELOAD_APK" /tmp/apk-out/quill-notes-sideload.apk
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -68,12 +73,16 @@ jobs:
           git rm -rf . > /dev/null 2>&1 || true
           mkdir -p dist
           cp /tmp/apk-out/quill-notes-debug.apk dist/quill-notes-debug.apk
+          cp /tmp/apk-out/quill-notes-sideload.apk dist/quill-notes-sideload.apk
           {
-            echo "Quill Notes — debug APK"
+            echo "Quill Notes — APKs"
             echo "Built from commit: ${GITHUB_SHA}"
             echo "Workflow run:      ${GITHUB_RUN_ID}"
             echo "Built at (UTC):    $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "quill-notes-debug.apk    - full debug build (unminified)"
+            echo "quill-notes-sideload.apk - debug-signed but minified/shrunk, smaller for easy install"
           } > dist/BUILD_INFO.txt
           git add dist
-          git commit -m "Build APK from ${GITHUB_SHA}"
+          git commit -m "Build APKs from ${GITHUB_SHA}"
           git push -f origin apk-builds-tmp:apk-builds
