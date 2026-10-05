@@ -2,10 +2,12 @@ package com.quillnotes.data.sync
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
@@ -42,6 +44,7 @@ class GoogleDriveSyncService @Inject constructor(
 ) : CloudSyncService {
 
     companion object {
+        private const val TAG = "GoogleDriveSync"
         private const val APP_NAME = "QuillNotes"
         private const val MIME_TYPE = "application/octet-stream"
     }
@@ -50,6 +53,10 @@ class GoogleDriveSyncService @Inject constructor(
 
     private val signInClient: GoogleSignInClient by lazy {
         val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            // Required for GoogleSignInAccount.getAccount() to return a non-null
+            // Account — without it, GoogleAccountCredential has nothing to bind
+            // to and buildDriveService() fails every time.
+            .requestEmail()
             .requestScopes(driveScope)
             .build()
         GoogleSignIn.getClient(context, options)
@@ -69,7 +76,20 @@ class GoogleDriveSyncService @Inject constructor(
                 .getResult(ApiException::class.java)
             buildDriveService(account)
             true
+        } catch (e: ApiException) {
+            Log.e(
+                TAG,
+                "Google sign-in failed: statusCode=${e.statusCode} " +
+                    "(${GoogleSignInStatusCodes.getStatusCodeString(e.statusCode)}). " +
+                    "Status code 10 (DEVELOPER_ERROR) almost always means the OAuth " +
+                    "client in Google Cloud Console doesn't match this app's " +
+                    "package name + signing certificate SHA-1.",
+                e
+            )
+            driveService = null
+            false
         } catch (e: Exception) {
+            Log.e(TAG, "Google sign-in failed", e)
             driveService = null
             false
         }
@@ -87,6 +107,7 @@ class GoogleDriveSyncService @Inject constructor(
                 false
             }
         } catch (e: Exception) {
+            Log.e(TAG, "Failed to restore Google sign-in session", e)
             driveService = null
             false
         }
