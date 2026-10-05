@@ -32,6 +32,11 @@ obj/
 *.jks
 *.keystore
 *.p12
+# Exception: a shared, non-sensitive debug-only signing key (fixed default
+# passwords, no production trust) so local builds, CI, and anyone testing
+# OAuth-based cloud sync all get the same stable SHA-1 fingerprint to
+# register with Google/Microsoft. Never use this for a Play Store release.
+!app/ci-debug.keystore
 
 # Signing config if stored in a properties file
 keystore.properties

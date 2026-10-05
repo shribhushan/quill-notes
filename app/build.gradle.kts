@@ -27,6 +27,22 @@ android {
         }
     }
 
+    signingConfigs {
+        // A fixed, checked-in debug-signing key (see app/ci-debug.keystore and
+        // .gitignore for why it's committed) so every build — local, CI, or
+        // handed to a tester — shares the same SHA-1 fingerprint. Without
+        // this, Gradle's default debug signing config auto-generates a new
+        // random key on any machine where ~/.android/debug.keystore doesn't
+        // already exist (every fresh CI runner), making it impossible to
+        // register a stable SHA-1 with Google/Microsoft OAuth clients.
+        create("ciDebug") {
+            storeFile = file("ci-debug.keystore")
+            storePassword = "android"
+            keyAlias = "quillnotes-ci-debug"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
@@ -38,6 +54,7 @@ android {
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("ciDebug")
         }
         // Debug-signed but minified/shrunk, purely so a sideload-sized APK
         // (the unminified debug build pulls in the full bytecode of every
