@@ -99,7 +99,7 @@ import com.quillnotes.ui.util.dayLabel
 import com.quillnotes.ui.util.joinTags
 import com.quillnotes.ui.util.parseTags
 import com.quillnotes.ui.util.readingMinutes
-import com.quillnotes.ui.util.relativeTime
+import com.quillnotes.ui.util.relativePhrase
 import com.quillnotes.ui.util.startOfDay
 import com.quillnotes.ui.util.timeOfDay
 import com.quillnotes.ui.util.wordCount
@@ -211,11 +211,23 @@ fun EditorContent(
                 .padding(horizontal = ScreenGutter)
         ) {
             Spacer(Modifier.height(4.dp))
-            Text(
-                text = eyebrowFor(state, now).uppercase(),
-                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp),
-                color = ink.copy(alpha = 0.6f)
-            )
+            val words = remember(state.title, state.content) { wordCount(state.content) + wordCount(state.title) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = eyebrowFor(state, now).uppercase(),
+                    style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.4.sp),
+                    color = ink.copy(alpha = 0.6f),
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+                if (words > 0) {
+                    Text(
+                        text = (if (words == 1) "1 word" else "$words words") + " · ${readingMinutes(words)} min",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = ink.copy(alpha = 0.5f)
+                    )
+                }
+            }
             Spacer(Modifier.height(10.dp))
 
             if (state.type == NoteType.TASK) {
@@ -258,14 +270,21 @@ fun EditorContent(
                 NoteType.NOTE -> Unit
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
+            TagEditor(
+                tags = state.tags,
+                onTagsChange = actions.onTagsChange,
+                ink = ink
+            )
+
+            Spacer(Modifier.height(20.dp))
             BasicTextField(
                 value = state.content,
                 onValueChange = actions.onContentChange,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = ink.copy(alpha = 0.88f), lineHeight = 27.sp),
                 cursorBrush = SolidColor(accent),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 220.dp),
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 360.dp),
                 decorationBox = { inner ->
                     Box {
                         if (state.content.isEmpty()) {
@@ -284,12 +303,6 @@ fun EditorContent(
                 }
             )
 
-            Spacer(Modifier.height(20.dp))
-            TagEditor(
-                tags = state.tags,
-                onTagsChange = actions.onTagsChange,
-                ink = ink
-            )
             Spacer(Modifier.height(32.dp))
         }
 
@@ -331,7 +344,7 @@ private fun eyebrowFor(state: EditorState, now: Long): String {
             "${dayLabel(startOfDay(at), now)} · ${timeOfDay(at)}"
         }
         state.id == null -> "New"
-        state.savedAt != null -> "Edited ${relativeTime(state.savedAt, now).lowercase()}"
+        state.savedAt != null -> "Edited ${relativePhrase(state.savedAt, now)}"
         else -> "Editing"
     }
     return "$kind · $detail"
@@ -602,53 +615,32 @@ private fun TagEditor(tags: String, onTagsChange: (String) -> Unit, ink: Color) 
 @Composable
 private fun EditorBottomBar(state: EditorState, ink: Color, onColorChange: (String?) -> Unit) {
     val quill = QuillTheme.colors
-    val words = remember(state.title, state.content) { wordCount(state.content) + wordCount(state.title) }
     Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(ink.copy(alpha = 0.08f)))
         Row(
-            modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = ScreenGutter, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            ColorOption(
+                fill = Color.Transparent,
+                ring = ink.copy(alpha = 0.3f),
+                selected = state.color == null,
+                label = "No colour",
+                ink = ink,
+                onClick = { onColorChange(null) },
+                icon = true
+            )
+            NoteColorKeys.forEach { key ->
+                val tone = quill.toneFor(key) ?: return@forEach
                 ColorOption(
-                    fill = Color.Transparent,
-                    ring = ink.copy(alpha = 0.3f),
-                    selected = state.color == null,
-                    label = "No colour",
+                    fill = tone.accent,
+                    ring = tone.accent,
+                    selected = state.color == key,
+                    label = key.replaceFirstChar { it.uppercase() },
                     ink = ink,
-                    onClick = { onColorChange(null) },
-                    icon = true
+                    onClick = { onColorChange(key) }
                 )
-                NoteColorKeys.forEach { key ->
-                    val tone = quill.toneFor(key) ?: return@forEach
-                    ColorOption(
-                        fill = tone.accent,
-                        ring = tone.accent,
-                        selected = state.color == key,
-                        label = key.replaceFirstChar { it.uppercase() },
-                        ink = ink,
-                        onClick = { onColorChange(key) }
-                    )
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = if (words == 1) "1 word" else "$words words",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = ink.copy(alpha = 0.7f)
-                )
-                if (words > 0) {
-                    Text(
-                        text = "${readingMinutes(words)} min read",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = ink.copy(alpha = 0.45f)
-                    )
-                }
             }
         }
     }

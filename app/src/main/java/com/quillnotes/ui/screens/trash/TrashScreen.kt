@@ -57,7 +57,7 @@ import com.quillnotes.ui.components.IconBadge
 import com.quillnotes.ui.components.ScreenGutter
 import com.quillnotes.ui.components.ScreenHeader
 import com.quillnotes.ui.theme.QuillTheme
-import com.quillnotes.ui.util.relativeTime
+import com.quillnotes.ui.util.relativePhrase
 
 private const val RETENTION_DAYS = 30
 private const val DAY_MS = 24 * 60 * 60 * 1000L
@@ -216,10 +216,16 @@ private fun TrashItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Deleted ${relativeTime(note.updatedAt, now).lowercase()} · " +
-                        if (daysLeft == 1) "1 day left" else "$daysLeft days left",
+                    text = "Deleted ${relativePhrase(note.updatedAt, now)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (daysLeft <= 3) scheme.error else scheme.onSurfaceVariant
+                    color = scheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = if (daysLeft == 1) "1 day left" else "$daysLeft days left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (daysLeft <= 3) scheme.error else scheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
             }
             Spacer(Modifier.width(8.dp))

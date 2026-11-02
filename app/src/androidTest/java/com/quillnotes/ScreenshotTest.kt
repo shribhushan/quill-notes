@@ -74,7 +74,7 @@ class ScreenshotTest {
                 onNavigate = {},
                 onCreate = {},
                 createLabel = "New",
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     }

@@ -189,7 +189,7 @@ fun QuillNotesMainScreen(initialSharedText: String? = null) {
             visible = showDock,
             enter = slideInVertically(tween(NAV_DURATION)) { it } + fadeIn(),
             exit = slideOutVertically(tween(NAV_DURATION)) { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+            modifier = Modifier.align(Alignment.BottomCenter)
         ) {
             QuillDock(
                 destinations = QuillDestinations,

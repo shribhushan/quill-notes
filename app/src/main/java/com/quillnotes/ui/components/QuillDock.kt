@@ -10,7 +10,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -30,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -60,8 +64,9 @@ fun QuillDock(
     modifier: Modifier = Modifier
 ) {
     val quill = QuillTheme.colors
+    BottomFade(modifier) {
     Row(
-        modifier = modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+        modifier = Modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
@@ -87,6 +92,30 @@ fun QuillDock(
         }
         Spacer(Modifier.width(12.dp))
         CreateButton(label = createLabel, onClick = onCreate)
+    }
+    }
+}
+
+/**
+ * Full-width backdrop that fades the page into the background colour, so content
+ * scrolling beneath a floating bar never competes with it.
+ */
+@Composable
+fun BottomFade(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val bg = MaterialTheme.colorScheme.background
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    0f to bg.copy(alpha = 0f),
+                    0.45f to bg.copy(alpha = 0.85f),
+                    1f to bg
+                )
+            ),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        content()
     }
 }
 

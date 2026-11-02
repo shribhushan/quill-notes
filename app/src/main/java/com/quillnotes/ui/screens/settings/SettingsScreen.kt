@@ -364,8 +364,8 @@ private fun FontSizeControl(selected: String, onSelect: (String) -> Unit) {
                 Triple("large", "Large", 24.sp)
             ).forEach { (key, label, sample) ->
                 val isSelected = key == selected
-                val bg by animateColorAsState(if (isSelected) scheme.surface else Color.Transparent, label = "fontSeg")
-                val fg by animateColorAsState(if (isSelected) scheme.onSurface else scheme.onSurfaceVariant, label = "fontSegFg")
+                val bg by animateColorAsState(if (isSelected) scheme.onBackground else Color.Transparent, label = "fontSeg")
+                val fg by animateColorAsState(if (isSelected) scheme.background else scheme.onSurfaceVariant, label = "fontSegFg")
                 Row(
                     modifier = Modifier
                         .weight(1f)

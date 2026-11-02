@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteEntity
+import com.quillnotes.ui.components.BottomFade
 import com.quillnotes.ui.components.CircleIconButton
 import com.quillnotes.ui.components.ColorDot
 import com.quillnotes.ui.components.DockClearance
@@ -285,8 +286,9 @@ fun HomeContent(
             visible = state.isSelectionMode,
             enter = slideInVertically { it } + fadeIn(),
             exit = slideOutVertically { it } + fadeOut(),
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+            modifier = Modifier.align(Alignment.BottomCenter)
         ) {
+            BottomFade {
             SelectionBar(
                 count = state.selectedIds.size,
                 allPinned = state.notes.filter { it.id in state.selectedIds }.let { sel ->
@@ -296,6 +298,7 @@ fun HomeContent(
                 onPin = actions.onPinSelected,
                 onDelete = actions.onDeleteSelected
             )
+            }
         }
 
         SnackbarHost(
@@ -502,7 +505,7 @@ private fun SelectionBar(
         color = quill.dockContainer,
         contentColor = quill.dockSelectedContainer,
         shadowElevation = 10.dp,
-        modifier = Modifier.padding(horizontal = ScreenGutter, vertical = 14.dp)
+        modifier = Modifier.navigationBarsPadding().padding(horizontal = ScreenGutter, vertical = 14.dp)
     ) {
         Row(
             modifier = Modifier.padding(6.dp).height(52.dp),

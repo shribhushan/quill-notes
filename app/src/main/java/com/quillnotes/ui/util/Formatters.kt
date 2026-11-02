@@ -115,3 +115,21 @@ fun localToPickerDate(localMillis: Long): Long {
 }
 
 fun readingMinutes(words: Int): Int = if (words == 0) 0 else maxOf(1, (words + 199) / 220)
+
+/**
+ * [relativeTime] phrased to sit inside a sentence: "just now", "5m ago", "yesterday",
+ * "on Saturday", "on Oct 21".
+ */
+fun relativePhrase(timestamp: Long, now: Long = System.currentTimeMillis()): String {
+    val diff = now - timestamp
+    val today = startOfDay(now)
+    return when {
+        diff < MINUTE -> "just now"
+        diff < HOUR -> "${diff / MINUTE}m ago"
+        timestamp >= today -> "${diff / HOUR}h ago"
+        timestamp >= shiftDays(today, -1) -> "yesterday"
+        timestamp >= shiftDays(today, -6) -> "on " + format("EEEE", timestamp)
+        sameYear(timestamp, now) -> "on " + format("MMM d", timestamp)
+        else -> "on " + format("MMM d, yyyy", timestamp)
+    }
+}

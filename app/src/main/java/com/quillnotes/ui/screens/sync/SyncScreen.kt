@@ -63,7 +63,7 @@ import com.quillnotes.ui.components.ScreenHeader
 import com.quillnotes.ui.components.SectionLabel
 import com.quillnotes.ui.components.heroBrush
 import com.quillnotes.ui.theme.QuillTheme
-import com.quillnotes.ui.util.relativeTime
+import com.quillnotes.ui.util.relativePhrase
 import kotlinx.coroutines.delay
 
 class SyncActions(
@@ -255,7 +255,7 @@ private fun StatusHero(state: SyncUiState, actions: SyncActions, now: Long) {
         Text(
             text = when {
                 !state.isConnected -> "Connect a provider below to keep an encrypted copy of your notes in the cloud."
-                state.lastSyncTime != null -> "Last synced ${relativeTime(state.lastSyncTime, now).lowercase()}"
+                state.lastSyncTime != null -> "Last synced ${relativePhrase(state.lastSyncTime, now)}"
                 else -> "Connected — run your first sync"
             },
             style = MaterialTheme.typography.bodyMedium,
