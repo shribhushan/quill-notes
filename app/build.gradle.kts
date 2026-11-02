@@ -188,3 +188,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+// Every variant's Room processor exports to the same app/schemas/ file. When two
+// KSP tasks overlap (debug + sideload in one build), one can read the file while
+// the other is rewriting it and fail with "Empty schema file". Run them in order.
+tasks.configureEach {
+    when (name) {
+        "kspSideloadKotlin" -> mustRunAfter("kspDebugKotlin")
+        "kspReleaseKotlin" -> mustRunAfter("kspDebugKotlin", "kspSideloadKotlin")
+    }
+}
