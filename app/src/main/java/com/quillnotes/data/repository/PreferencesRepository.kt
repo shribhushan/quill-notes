@@ -80,7 +80,7 @@ class PreferencesRepository @Inject constructor(
 
     // ── Notes View Mode (list / grid) ─────────────────────────────
     val notesViewMode: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[NOTES_VIEW_MODE_KEY] ?: "list"
+        prefs[NOTES_VIEW_MODE_KEY] ?: "grid"
     }
 
     suspend fun setNotesViewMode(mode: String) {

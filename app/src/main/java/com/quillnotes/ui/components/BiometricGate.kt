@@ -3,8 +3,11 @@ package com.quillnotes.ui.components
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Fingerprint
-import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,19 +28,23 @@ fun BiometricGate(
     content: @Composable () -> Unit
 ) {
     val settingsViewModel: SettingsViewModel = hiltViewModel()
-    val biometricLock by settingsViewModel.biometricLock.collectAsState(initial = false)
+    // null until the preference loads, so the gate never flashes content before it knows.
+    val biometricLock by settingsViewModel.biometricLock
+        .collectAsState(initial = null as Boolean?)
 
-    var isAuthenticated by remember { mutableStateOf(!biometricLock) }
+    var isAuthenticated by remember { mutableStateOf(false) }
     var backgroundedAt by remember { mutableStateOf(0L) }
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(biometricLock) {
-        if (!biometricLock) {
-            isAuthenticated = true
-        } else if (!isAuthenticated) {
-            triggerBiometricPrompt(context, onSuccess = { isAuthenticated = true })
+        when (biometricLock) {
+            false -> isAuthenticated = true
+            true -> if (!isAuthenticated) {
+                triggerBiometricPrompt(context, onSuccess = { isAuthenticated = true })
+            }
+            null -> Unit
         }
     }
 
@@ -46,7 +53,7 @@ fun BiometricGate(
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> backgroundedAt = System.currentTimeMillis()
                 Lifecycle.Event.ON_RESUME -> {
-                    if (biometricLock && isAuthenticated) {
+                    if (biometricLock == true && isAuthenticated) {
                         val elapsed = System.currentTimeMillis() - backgroundedAt
                         if (elapsed > 60_000L) {
                             isAuthenticated = false
@@ -61,10 +68,10 @@ fun BiometricGate(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    if (!biometricLock || isAuthenticated) {
-        content()
-    } else {
-        LockedScreen(
+    when {
+        biometricLock == null -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+        biometricLock == false || isAuthenticated -> content()
+        else -> LockedScreen(
             onUnlock = {
                 triggerBiometricPrompt(context, onSuccess = { isAuthenticated = true })
             }
@@ -95,48 +102,62 @@ private fun triggerBiometricPrompt(
     prompt.authenticate(info)
 }
 
+/** Shown while the app is locked; also used directly by screenshot tests. */
 @Composable
-private fun LockedScreen(onUnlock: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
+fun LockedScreen(onUnlock: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(scheme.background)
+            .systemBarsPadding()
+            .padding(32.dp)
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Outlined.Lock,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                "Quill Notes is locked",
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Authenticate to access your notes",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = onUnlock) {
-                Icon(
-                    Icons.Outlined.Fingerprint,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Unlock")
+            Box(
+                modifier = Modifier.size(132.dp).clip(CircleShape).background(heroBrush()),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier.size(76.dp).clip(CircleShape).background(scheme.surface.copy(alpha = 0.75f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.Lock, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(34.dp))
+                }
             }
+            Spacer(Modifier.height(28.dp))
+            Text(
+                "Quill is locked",
+                style = MaterialTheme.typography.displaySmall,
+                color = scheme.onBackground,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Your notes are encrypted and waiting.\nUnlock to pick up where you left off.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = scheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
+        Button(
+            onClick = onUnlock,
+            shape = CircleShape,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = scheme.onBackground,
+                contentColor = scheme.background
+            ),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Icon(Icons.Rounded.Fingerprint, contentDescription = null, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(10.dp))
+            Text("Unlock", style = MaterialTheme.typography.titleMedium)
         }
     }
 }
