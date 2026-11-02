@@ -92,14 +92,14 @@ class SampleData(val now: Long = System.currentTimeMillis()) {
     )
 
     val tasks = listOf(
-        NoteEntity(id = 40, type = NoteType.TASK, title = "Send Q3 roadmap", dueDate = daysAgo(1, 18), tags = "work", updatedAt = now - 2 * hour),
+        NoteEntity(id = 40, type = NoteType.TASK, content = "", title = "Send Q3 roadmap", dueDate = daysAgo(1, 18), tags = "work", updatedAt = now - 2 * hour),
         NoteEntity(id = 41, type = NoteType.TASK, title = "Prep for 1:1", content = "Goals, on-call load, feedback", dueDate = today + 15 * hour, tags = "work", color = "blue", updatedAt = now - 4 * hour),
-        NoteEntity(id = 42, type = NoteType.TASK, title = "Book weekend hotel", dueDate = today + 18 * hour, color = "green", updatedAt = now - 5 * hour),
-        NoteEntity(id = 43, type = NoteType.TASK, title = "Revise chapter 12 opening", dueDate = inDays(2, 9), tags = "writing", color = "yellow", updatedAt = now - 6 * hour),
-        NoteEntity(id = 44, type = NoteType.TASK, title = "Renew passport", dueDate = inDays(9, 9), updatedAt = now - 30 * hour),
-        NoteEntity(id = 45, type = NoteType.TASK, title = "Try the new pour-over recipe", updatedAt = now - 50 * hour),
-        NoteEntity(id = 46, type = NoteType.TASK, title = "Review rollout plan", isCompleted = true, dueDate = today + 10 * hour, tags = "work", updatedAt = now - hour),
-        NoteEntity(id = 47, type = NoteType.TASK, title = "Pay electricity bill", isCompleted = true, updatedAt = now - 20 * hour)
+        NoteEntity(id = 42, type = NoteType.TASK, content = "", title = "Book weekend hotel", dueDate = today + 18 * hour, color = "green", updatedAt = now - 5 * hour),
+        NoteEntity(id = 43, type = NoteType.TASK, content = "", title = "Revise chapter 12 opening", dueDate = inDays(2, 9), tags = "writing", color = "yellow", updatedAt = now - 6 * hour),
+        NoteEntity(id = 44, type = NoteType.TASK, content = "", title = "Renew passport", dueDate = inDays(9, 9), updatedAt = now - 30 * hour),
+        NoteEntity(id = 45, type = NoteType.TASK, content = "", title = "Try the new pour-over recipe", updatedAt = now - 50 * hour),
+        NoteEntity(id = 46, type = NoteType.TASK, content = "", title = "Review rollout plan", isCompleted = true, dueDate = today + 10 * hour, tags = "work", updatedAt = now - hour),
+        NoteEntity(id = 47, type = NoteType.TASK, content = "", title = "Pay electricity bill", isCompleted = true, updatedAt = now - 20 * hour)
     )
 
     val trash = listOf(
