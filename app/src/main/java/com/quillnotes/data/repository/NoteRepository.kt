@@ -35,9 +35,19 @@ class NoteRepository @Inject constructor(
     suspend fun getNoteById(id: Long): NoteEntity? =
         noteDao.getNoteById(id)?.let { decryptNote(it) }
 
+    /**
+     * Note text is encrypted with a randomised AEAD, so it can't be matched in SQL —
+     * search the decrypted notes in memory instead.
+     */
     fun searchNotes(query: String): Flow<List<NoteEntity>> =
-        noteDao.searchNotes(encryption.encrypt(query)).map { notes ->
-            notes.map { decryptNote(it) }
+        getAllNotes().map { notes ->
+            val q = query.trim()
+            if (q.isEmpty()) notes
+            else notes.filter {
+                it.title.contains(q, ignoreCase = true) ||
+                    it.content.contains(q, ignoreCase = true) ||
+                    it.tags.contains(q, ignoreCase = true)
+            }
         }
 
     fun getCountByType(type: NoteType): Flow<Int> = noteDao.getCountByType(type)
@@ -45,8 +55,11 @@ class NoteRepository @Inject constructor(
     // ── Write Operations ───────────────────────────────────────
 
     suspend fun createNote(note: NoteEntity): Long {
-        val encrypted = encryptNote(note)
-        return noteDao.insertNote(encrypted)
+        // Ciphertext is bound to the note's id, which only exists once the row is inserted:
+        // reserve the row first, then write the content encrypted under its real id.
+        val id = noteDao.insertNote(note.copy(id = 0, title = "", content = "", tags = "", mood = null))
+        noteDao.updateNote(encryptNote(note.copy(id = id)))
+        return id
     }
 
     suspend fun updateNote(note: NoteEntity) {
@@ -117,10 +130,24 @@ class NoteRepository @Inject constructor(
     private fun decryptNote(note: NoteEntity): NoteEntity {
         val context = "note_${note.id}"
         return note.copy(
-            title = encryption.decrypt(note.title, context),
-            content = encryption.decrypt(note.content, context),
-            tags = encryption.decrypt(note.tags, context),
-            mood = note.mood?.let { encryption.decrypt(it, context) }
+            title = decryptField(note.title, context),
+            content = decryptField(note.content, context),
+            tags = decryptField(note.tags, context),
+            mood = note.mood?.let { decryptField(it, context) }
         )
+    }
+
+    /**
+     * Earlier builds encrypted brand-new notes before they had an id (context "note_0"),
+     * so fall back to that context when the note's own one doesn't authenticate.
+     * [NoteEncryptionManager.decrypt] returns its input unchanged on failure.
+     */
+    private fun decryptField(value: String, context: String): String {
+        val plain = encryption.decrypt(value, context)
+        return if (plain == value && value.isNotEmpty()) encryption.decrypt(value, LEGACY_NEW_NOTE_CONTEXT) else plain
+    }
+
+    private companion object {
+        const val LEGACY_NEW_NOTE_CONTEXT = "note_0"
     }
 }

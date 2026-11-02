@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches the Midnight theme background. -->
+    <color name="quill_window_background">#0E0E12</color>
+</resources>

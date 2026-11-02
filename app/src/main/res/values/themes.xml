@@ -3,7 +3,7 @@
     <!-- Base app theme — Compose drives all colour, this just controls
          the pre-Compose system chrome (splash, status bar, etc.) -->
     <style name="Theme.QuillNotes" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:windowBackground">@color/quill_window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -12,7 +12,7 @@
 
     <!-- Splash screen theme — shown before setContent() -->
     <style name="Theme.QuillNotes.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FCFCFF</item>
+        <item name="windowSplashScreenBackground">@color/quill_window_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_quill</item>
         <item name="windowSplashScreenAnimationDuration">500</item>
         <item name="postSplashScreenTheme">@style/Theme.QuillNotes</item>

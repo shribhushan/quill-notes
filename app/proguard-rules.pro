@@ -20,6 +20,18 @@
 # MSAL
 -keep class com.microsoft.identity.** { *; }
 -keep class com.nimbusds.** { *; }
+# Optional classes MSAL's `common` module references for features this app
+# doesn't use (Surface Duo dual-screen, OpenTelemetry tracing, FindBugs
+# annotations) — never present on the Android classpath, never executed.
+-dontwarn com.microsoft.device.display.**
+-dontwarn edu.umd.cs.findbugs.annotations.**
+-dontwarn io.opentelemetry.**
+
+# Apache HttpClient (transitive via MSAL) references optional Kerberos/LDAP
+# support (javax.naming, org.ietf.jgss) not present on Android and not used
+# by this app's HTTP calls.
+-dontwarn javax.naming.**
+-dontwarn org.ietf.jgss.**
 
 # Gson
 -keepattributes Signature

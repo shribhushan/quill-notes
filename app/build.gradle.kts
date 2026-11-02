@@ -13,8 +13,8 @@ android {
         applicationId = "com.quillnotes"
         minSdk = 31 // Android 12 — supports last 3 major versions (12, 13, 14/15)
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 3
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -24,6 +24,22 @@ android {
         // Room schema export
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
+        }
+    }
+
+    signingConfigs {
+        // A fixed, checked-in debug-signing key (see app/ci-debug.keystore and
+        // .gitignore for why it's committed) so every build — local, CI, or
+        // handed to a tester — shares the same SHA-1 fingerprint. Without
+        // this, Gradle's default debug signing config auto-generates a new
+        // random key on any machine where ~/.android/debug.keystore doesn't
+        // already exist (every fresh CI runner), making it impossible to
+        // register a stable SHA-1 with Google/Microsoft OAuth clients.
+        create("ciDebug") {
+            storeFile = file("ci-debug.keystore")
+            storePassword = "android"
+            keyAlias = "quillnotes-ci-debug"
+            keyPassword = "android"
         }
     }
 
@@ -38,6 +54,21 @@ android {
         }
         debug {
             isDebuggable = true
+            signingConfig = signingConfigs.getByName("ciDebug")
+        }
+        // Debug-signed but minified/shrunk, purely so a sideload-sized APK
+        // (the unminified debug build pulls in the full bytecode of every
+        // dependency — Drive API, MSAL, Play Services Auth — at ~70MB) can be
+        // installed for manual testing without a release signing setup.
+        create("sideload") {
+            initWith(getByName("debug"))
+            matchingFallbacks += listOf("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 
@@ -62,6 +93,18 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Several transitive libraries (Apache HttpComponents pulled in via
+            // the Google API client / MSAL, etc.) ship duplicate META-INF
+            // metadata files that the resource merger can't reconcile on its own.
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/LICENSE.md"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.kotlin_module"
         }
     }
 }
@@ -73,6 +116,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
 
     // Compose BOM
     implementation(platform("androidx.compose:compose-bom:2024.01.00"))
@@ -110,7 +154,16 @@ dependencies {
     implementation("com.google.http-client:google-http-client-gson:1.43.3")
 
     // Microsoft Graph (OneDrive)
-    implementation("com.microsoft.identity.client:msal:5.0.0")
+    implementation("com.microsoft.identity.client:msal:5.0.0") {
+        // Surface Duo dual-screen support — unpublished/unresolvable transitive
+        // dependency that isn't needed for this app's use of MSAL.
+        exclude(group = "com.microsoft.device.display", module = "display-mask")
+        // MSAL's optional telemetry hooks pull in an OpenTelemetry BOM that
+        // Gradle's variant-aware resolution can't consume (published as a
+        // plain dependency instead of an import-scope platform). Not needed
+        // for sign-in/token acquisition.
+        exclude(group = "io.opentelemetry")
+    }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
@@ -128,6 +181,7 @@ dependencies {
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.01.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")

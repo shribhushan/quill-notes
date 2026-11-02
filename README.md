@@ -1,19 +1,35 @@
 # Quill Notes 🪶
 
-A minimalist, privacy-first Android note-taking app with AES-256 encryption,
-cloud sync, and three beautiful themes.
+A calm, privacy-first Android notebook — notes, journal and planner in one
+place, encrypted with AES-256 and backed up to the cloud only when you ask.
+
+## Design
+
+Quill 1.3 has an editorial look: a warm paper palette, **Instrument Serif**
+display type over the platform sans, generous spacing and a floating ink dock.
+
+- **Themes:** Paper (light), Midnight (dark), Aurora (violet), Wallpaper
+  (Material You) or follow the system. Each note can carry one of six tones
+  (yellow, green, blue, pink, purple, orange) that tint its card and editor.
+- **Floating dock** for Notes / Journal / Planner, with a create button that
+  makes the right kind of item for the current tab.
+- Screens are split into stateless `*Content` composables fed by a UI-state
+  object, so they render in tests and previews without ViewModels.
 
 ## Features
 
 | Feature | Details |
 |---|---|
-| **Quick Notes** | Distraction-free editor, pin & search |
-| **Journal** | Daily entries with mood tracking, grouped by date |
-| **Planner** | Tasks with due dates and one-tap completion |
+| **Notes** | Staggered grid or list, pinned + recent sections, filter by pinned / tone / tag, sort menu, swipe to pin or trash |
+| **Multi-select** | Long-press to select; floating bar to bulk pin or trash, with undo |
+| **Search** | Searches title, body and tags of your (decrypted) notes as you type |
+| **Editor** | Tone-tinted canvas, serif title, inline tag chips, word count + reading time, undo/redo, pin, share, move to trash, autosave |
+| **Journal** | Weekly mood strip, writing streak, day-grouped timeline, daily prompt |
+| **Planner** | Progress ring, quick add (optionally due today), Overdue / Today / Upcoming / Someday / Completed groups, swipe to complete, reminders |
+| **Trash** | 30-day retention with days-left countdown, restore or delete forever |
 | **Encryption** | AES-256-GCM via Google Tink, hardware-backed key in Android Keystore |
 | **Cloud Sync** | Google Drive & Microsoft OneDrive (encrypted before upload) |
-| **Themes** | Light · Dark · Colorful · System default |
-| **Biometric Lock** | Optional fingerprint / face authentication |
+| **Biometric Lock** | Optional fingerprint / face unlock, re-locks after a minute in the background |
 
 ## Tech Stack
 
@@ -43,7 +59,8 @@ app/src/main/java/com/quillnotes/
 │   └── sync/           CloudSyncManager, SyncProvider, Google/OneDrive services
 ├── di/                 Hilt modules (AppModule, SyncModule)
 └── ui/
-    ├── components/     NoteCard, EmptyState, MoodSelector, DatePickerButton, BottomBar
+    ├── components/     QuillDesign (header, chips, search…), QuillDock, NoteCards,
+    │                   EmptyState, MoodSelector, ProgressRing, swipe actions, BiometricGate
     ├── navigation/     Screen sealed class
     ├── screens/
     │   ├── home/       HomeScreen + HomeViewModel
@@ -51,8 +68,10 @@ app/src/main/java/com/quillnotes/
     │   ├── journal/    JournalScreen + JournalViewModel
     │   ├── planner/    PlannerScreen + PlannerViewModel
     │   ├── settings/   SettingsScreen + SettingsViewModel
-    │   └── sync/       SyncScreen + SyncViewModel
-    └── theme/          Color.kt, Type.kt, Theme.kt
+    │   ├── sync/       SyncScreen + SyncViewModel
+    │   └── trash/      TrashScreen + TrashViewModel
+    ├── theme/          Color.kt, Type.kt, Shape.kt, Theme.kt
+    └── util/           Date, tag and word-count formatters
 ```
 
 ## Setup
@@ -77,6 +96,17 @@ git clone <repo>
 ```bash
 ./gradlew assembleDebug          # Debug APK
 ./gradlew bundleRelease          # Signed AAB for Play Store
+```
+
+### 5. UI screenshots
+`app/src/androidTest/.../ScreenshotTest.kt` renders every screen with fixture
+data (`SampleData.kt`) in several themes. CI runs it on an API 34 emulator on
+every push and publishes the PNGs to the `ui-screenshots` branch. Locally:
+
+```bash
+./gradlew connectedDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.class=com.quillnotes.ScreenshotTest
+adb exec-out run-as com.quillnotes tar -c -C files screenshots > screenshots.tar
 ```
 
 ## Security Model
