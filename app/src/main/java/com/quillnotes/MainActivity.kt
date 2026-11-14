@@ -9,13 +9,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
-import com.quillnotes.ui.QuillNotesMainScreen
+import com.quillnotes.data.media.AttachmentBitmapLoader
+import com.quillnotes.ui.QuillAppRoot
 import com.quillnotes.ui.components.BiometricGate
 import com.quillnotes.ui.theme.QuillNotesTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
+
+    @Inject lateinit var imageLoader: AttachmentBitmapLoader
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -32,7 +36,7 @@ class MainActivity : FragmentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     BiometricGate {
-                        QuillNotesMainScreen(launchRequest = launchRequest)
+                        QuillAppRoot(imageLoader = imageLoader, launchRequest = launchRequest)
                     }
                 }
             }

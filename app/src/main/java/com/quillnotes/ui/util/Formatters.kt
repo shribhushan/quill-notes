@@ -60,6 +60,19 @@ fun headerDate(now: Long = System.currentTimeMillis()): String = format("EEEE, d
 
 fun shortWeekday(timestamp: Long): String = format("EEEEE", timestamp)
 
+/** "Nov 16" */
+fun shortDate(timestamp: Long): String = format("MMM d", timestamp)
+
+/** "Mon" */
+fun weekdayAbbrev(timestamp: Long): String = format("EEE", timestamp)
+
+/** "November 2026" */
+fun monthYear(timestamp: Long): String = format("LLLL yyyy", timestamp)
+
+fun yearOf(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.YEAR)
+
+fun dayOfMonth(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.DAY_OF_MONTH)
+
 fun greeting(now: Long = System.currentTimeMillis()): String {
     val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
     return when (hour) {
@@ -95,15 +108,28 @@ fun wordCount(text: String): Int = text.split(Regex("\\s+")).count { it.isNotBla
 
 /**
  * Material's date picker works in UTC midnights. Converts the picked calendar date to a
- * local timestamp on that same date (at [hour], used as the reminder time).
+ * local timestamp on that same date, at [hour]:[minute] (the reminder time).
  */
-fun pickerDateToLocal(utcMillis: Long, hour: Int = 9): Long {
+fun pickerDateToLocal(utcMillis: Long, hour: Int = 9, minute: Int = 0): Long {
     val utc = Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).apply { timeInMillis = utcMillis }
     return Calendar.getInstance().apply {
         clear()
-        set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH), hour, 0, 0)
+        set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH), hour, minute, 0)
     }.timeInMillis
 }
+
+/** [timestamp] moved to [hour]:[minute] on the same local day. */
+fun withTimeOfDay(timestamp: Long, hour: Int, minute: Int): Long = Calendar.getInstance().apply {
+    timeInMillis = timestamp
+    set(Calendar.HOUR_OF_DAY, hour)
+    set(Calendar.MINUTE, minute)
+    set(Calendar.SECOND, 0)
+    set(Calendar.MILLISECOND, 0)
+}.timeInMillis
+
+fun hourOf(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.HOUR_OF_DAY)
+
+fun minuteOf(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.MINUTE)
 
 /** Inverse of [pickerDateToLocal]: the UTC midnight of a local timestamp's calendar date. */
 fun localToPickerDate(localMillis: Long): Long {

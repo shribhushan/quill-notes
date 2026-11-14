@@ -89,10 +89,28 @@ import com.quillnotes.ui.theme.QuillTheme
 import com.quillnotes.ui.util.headerDate
 import com.quillnotes.ui.util.shiftDays
 import com.quillnotes.ui.util.startOfDay
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
+import com.quillnotes.domain.PlannerStats
+import com.quillnotes.domain.Priority
+import com.quillnotes.ui.components.QuillChip
+import com.quillnotes.ui.components.priorityColor
+import com.quillnotes.ui.util.dayLabel
+import com.quillnotes.ui.util.dayOfMonth
+import com.quillnotes.ui.util.shortDate
+import com.quillnotes.ui.util.weekdayAbbrev
 
 data class PlannerUiState(
     val tasks: List<NoteEntity> = emptyList(),
     val showCompleted: Boolean = true,
+    val view: PlannerView = PlannerView.LIST,
+    val weekStart: Long = PlannerStats.weekStart(System.currentTimeMillis()),
+    val selectedDay: Long = startOfDay(System.currentTimeMillis()),
     val now: Long = System.currentTimeMillis()
 )
 
@@ -101,7 +119,11 @@ class PlannerActions(
     val onToggle: (NoteEntity) -> Unit = {},
     val onDelete: (Long) -> Unit = {},
     val onQuickAdd: (String, Boolean) -> Unit = { _, _ -> },
-    val onToggleShowCompleted: () -> Unit = {}
+    val onToggleShowCompleted: () -> Unit = {},
+    val onViewChange: (PlannerView) -> Unit = {},
+    val onShiftWeek: (Int) -> Unit = {},
+    val onSelectDay: (Long) -> Unit = {},
+    val onQuickAddOn: (String, Long?) -> Unit = { _, _ -> }
 )
 
 data class TaskGroups(
@@ -118,7 +140,9 @@ fun groupTasks(tasks: List<NoteEntity>, now: Long): TaskGroups {
     val today = startOfDay(now)
     val tomorrow = shiftDays(today, 1)
     val (done, open) = tasks.partition { it.isCompleted }
-    val dated = open.filter { it.dueDate != null }.sortedBy { it.dueDate }
+    // By day, then most important first, then earliest time.
+    val dated = open.filter { it.dueDate != null }
+        .sortedWith(compareBy<NoteEntity> { startOfDay(it.dueDate!!) }.thenByDescending { it.priority }.thenBy { it.dueDate })
     return TaskGroups(
         overdue = dated.filter { it.dueDate!! < today },
         today = dated.filter { it.dueDate!! in today until tomorrow },
@@ -137,6 +161,9 @@ fun PlannerScreen(
     val tasks by viewModel.tasks.collectAsState()
     val requestNotifications = rememberNotificationPermissionRequest()
     val showCompleted by viewModel.showCompleted.collectAsState()
+    val view by viewModel.view.collectAsState()
+    val weekStart by viewModel.weekStart.collectAsState()
+    val selectedDay by viewModel.selectedDay.collectAsState()
     val now = remember(tasks) { System.currentTimeMillis() }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -152,7 +179,10 @@ fun PlannerScreen(
     }
 
     PlannerContent(
-        state = PlannerUiState(tasks = tasks, showCompleted = showCompleted, now = now),
+        state = PlannerUiState(
+            tasks = tasks, showCompleted = showCompleted, view = view,
+            weekStart = weekStart, selectedDay = selectedDay, now = now
+        ),
         actions = PlannerActions(
             onTaskClick = onTaskClick,
             onToggle = viewModel::toggleComplete,
@@ -161,7 +191,14 @@ fun PlannerScreen(
                 if (dueToday) requestNotifications()
                 viewModel.quickAdd(title, dueToday)
             },
-            onToggleShowCompleted = viewModel::toggleShowCompleted
+            onToggleShowCompleted = viewModel::toggleShowCompleted,
+            onViewChange = viewModel::setView,
+            onShiftWeek = viewModel::shiftWeek,
+            onSelectDay = viewModel::selectDay,
+            onQuickAddOn = { title, day ->
+                requestNotifications()
+                viewModel.quickAddOn(title, day)
+            }
         ),
         snackbarHostState = snackbarHostState
     )
@@ -196,6 +233,14 @@ fun PlannerContent(
                     subtitle = "${groups.open} to do · ${groups.completed.size} done"
                 )
                 Spacer(Modifier.height(16.dp))
+            }
+            item(key = "view_switch") {
+                ViewSwitch(state.view, actions.onViewChange)
+                Spacer(Modifier.height(12.dp))
+            }
+            if (state.view == PlannerView.WEEK) {
+                weekSection(state, actions)
+                return@LazyColumn
             }
             if (state.tasks.isNotEmpty()) {
                 item(key = "progress") {
@@ -387,7 +432,11 @@ private fun StatPill(text: String, bg: Color, fg: Color) {
 }
 
 @Composable
-private fun QuickAddField(onAdd: (String, Boolean) -> Unit) {
+private fun QuickAddField(
+    onAdd: (String, Boolean) -> Unit,
+    placeholder: String = stringResource(R.string.planner_add_task),
+    showTodayToggle: Boolean = true
+) {
     val scheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
     var text by rememberSaveable { mutableStateOf("") }
@@ -420,7 +469,7 @@ private fun QuickAddField(onAdd: (String, Boolean) -> Unit) {
             Spacer(Modifier.width(12.dp))
             Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                 if (text.isEmpty()) {
-                    Text("Add a task…", style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
+                    Text(placeholder, style = MaterialTheme.typography.bodyLarge, color = scheme.onSurfaceVariant)
                 }
                 BasicTextField(
                     value = text,
@@ -439,7 +488,7 @@ private fun QuickAddField(onAdd: (String, Boolean) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            Surface(
+            if (showTodayToggle) Surface(
                 onClick = { dueToday = !dueToday },
                 shape = CircleShape,
                 color = todayBg,
@@ -490,6 +539,151 @@ private fun AllDoneBanner() {
         Column {
             Text("You're all caught up", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
             Text("Enjoy the quiet, or plan what's next.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ViewSwitch(view: PlannerView, onChange: (PlannerView) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        QuillChip(stringResource(R.string.planner_view_list), view == PlannerView.LIST, onClick = { onChange(PlannerView.LIST) })
+        QuillChip(stringResource(R.string.planner_view_week), view == PlannerView.WEEK, onClick = { onChange(PlannerView.WEEK) })
+    }
+}
+
+/** Week strip, the chosen day's tasks, and a quick-add that files tasks on that day. */
+private fun LazyListScope.weekSection(state: PlannerUiState, actions: PlannerActions) {
+    item(key = "week_strip") {
+        WeekStrip(state, actions)
+        Spacer(Modifier.height(12.dp))
+    }
+    item(key = "week_add") {
+        QuickAddField(
+            onAdd = { title, _ -> actions.onQuickAddOn(title, state.selectedDay) },
+            placeholder = stringResource(R.string.planner_add_for_day, dayLabel(state.selectedDay, state.now)),
+            showTodayToggle = false
+        )
+    }
+    val dayTasks = PlannerStats.tasksByDay(state.tasks)[state.selectedDay].orEmpty()
+    item(key = "week_day_label") {
+        SectionLabel(dayLabel(state.selectedDay, state.now), count = dayTasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
+    }
+    if (dayTasks.isEmpty()) {
+        item(key = "week_empty") {
+            Text(
+                stringResource(R.string.planner_day_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+    } else {
+        taskItems(dayTasks, state, actions)
+    }
+    val undated = state.tasks.filter { it.dueDate == null && !it.isCompleted }
+    if (undated.isNotEmpty()) {
+        item(key = "week_undated_label") {
+            SectionLabel(stringResource(R.string.planner_no_due_date), count = undated.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
+        }
+        taskItems(undated, state, actions)
+    }
+}
+
+@Composable
+private fun WeekStrip(state: PlannerUiState, actions: PlannerActions) {
+    val quill = QuillTheme.colors
+    val scheme = MaterialTheme.colorScheme
+    val days = remember(state.weekStart) { PlannerStats.weekDays(state.weekStart) }
+    val byDay = remember(state.tasks) { PlannerStats.tasksByDay(state.tasks) }
+    val today = startOfDay(state.now)
+    val isThisWeek = state.weekStart == PlannerStats.weekStart(state.now)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = quill.card,
+        border = BorderStroke(1.dp, quill.cardBorder),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = shortDate(days.first()) + " – " + shortDate(days.last()),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = scheme.onSurface,
+                    modifier = Modifier.weight(1f).padding(start = 6.dp)
+                )
+                if (!isThisWeek) {
+                    TextButton(onClick = { actions.onShiftWeek(0) }) { Text(stringResource(R.string.planner_this_week)) }
+                }
+                CircleIconButton(
+                    icon = Icons.Rounded.ChevronLeft,
+                    contentDescription = stringResource(R.string.planner_previous_week),
+                    onClick = { actions.onShiftWeek(-1) },
+                    size = 40.dp,
+                    containerColor = Color.Transparent
+                )
+                CircleIconButton(
+                    icon = Icons.Rounded.ChevronRight,
+                    contentDescription = stringResource(R.string.planner_next_week),
+                    onClick = { actions.onShiftWeek(1) },
+                    size = 40.dp,
+                    containerColor = Color.Transparent
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                days.forEach { day ->
+                    WeekDayCell(
+                        day = day,
+                        selected = day == state.selectedDay,
+                        isToday = day == today,
+                        tasks = byDay[day].orEmpty(),
+                        onClick = { actions.onSelectDay(day) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WeekDayCell(day: Long, selected: Boolean, isToday: Boolean, tasks: List<NoteEntity>, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val open = tasks.filterNot { it.isCompleted }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .width(42.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+    ) {
+        Text(
+            weekdayAbbrev(day).take(3),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) scheme.onSurface else scheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(if (selected) scheme.onBackground else Color.Transparent)
+                .border(if (isToday && !selected) 1.5.dp else 0.dp, if (isToday && !selected) scheme.onBackground else Color.Transparent, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                dayOfMonth(day).toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (selected) scheme.background else scheme.onSurface
+            )
+        }
+        Spacer(Modifier.height(5.dp))
+        Row(Modifier.height(6.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+            val shown = if (open.isNotEmpty()) open else tasks
+            shown.take(3).forEach { t ->
+                val c = priorityColor(Priority.of(t.priority)) ?: scheme.primary
+                Box(Modifier.size(5.dp).clip(CircleShape).background(if (t.isCompleted) c.copy(alpha = 0.3f) else c))
+            }
         }
     }
 }

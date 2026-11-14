@@ -13,12 +13,14 @@ data class LaunchRequest(
     /** Distinguishes two otherwise identical requests so each is handled once. */
     val token: Long = System.nanoTime()
 ) {
-    enum class Kind { NONE, NEW_NOTE, NEW_TASK, NEW_JOURNAL, OPEN_NOTE, OPEN_TASK, SEARCH, SHARED_TEXT }
+    enum class Kind { NONE, NEW_NOTE, NEW_TASK, NEW_JOURNAL, NEW_VOICE, OPEN_NOTE, OPEN_TASK, OPEN_PLANNER, SEARCH, SHARED_TEXT }
 
     companion object {
         const val ACTION_NEW_NOTE = "com.quillnotes.action.NEW_NOTE"
         const val ACTION_NEW_TASK = "com.quillnotes.action.NEW_TASK"
         const val ACTION_NEW_JOURNAL = "com.quillnotes.action.NEW_JOURNAL"
+        const val ACTION_NEW_VOICE = "com.quillnotes.action.NEW_VOICE"
+        const val ACTION_OPEN_PLANNER = "com.quillnotes.action.OPEN_PLANNER"
         const val ACTION_OPEN_NOTE = "com.quillnotes.action.OPEN_NOTE"
         const val ACTION_OPEN_TASK = "com.quillnotes.action.OPEN_TASK"
         const val ACTION_SEARCH = "com.quillnotes.action.SEARCH"
@@ -34,6 +36,8 @@ data class LaunchRequest(
                 ACTION_NEW_NOTE -> LaunchRequest(Kind.NEW_NOTE)
                 ACTION_NEW_TASK -> LaunchRequest(Kind.NEW_TASK)
                 ACTION_NEW_JOURNAL -> LaunchRequest(Kind.NEW_JOURNAL)
+                ACTION_NEW_VOICE -> LaunchRequest(Kind.NEW_VOICE)
+                ACTION_OPEN_PLANNER -> LaunchRequest(Kind.OPEN_PLANNER)
                 ACTION_SEARCH -> LaunchRequest(Kind.SEARCH)
                 ACTION_OPEN_NOTE -> intent.getLongExtra(EXTRA_NOTE_ID, -1L).takeIf { it > 0 }
                     ?.let { LaunchRequest(Kind.OPEN_NOTE, noteId = it) } ?: NONE

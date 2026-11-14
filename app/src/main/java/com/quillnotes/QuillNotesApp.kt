@@ -6,7 +6,11 @@ import android.app.NotificationManager
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.quillnotes.data.repository.NoteRepository
 import com.quillnotes.data.repository.PreferencesRepository
+import com.quillnotes.widget.refreshWidgets
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import com.quillnotes.data.sync.SyncWorker
 import com.quillnotes.notifications.PurgeWorker
 import dagger.hilt.android.HiltAndroidApp
@@ -22,13 +26,20 @@ import java.util.concurrent.TimeUnit
 class QuillNotesApp : Application() {
 
     @Inject lateinit var preferences: PreferencesRepository
+    @Inject lateinit var noteRepository: NoteRepository
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    @OptIn(FlowPreview::class)
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.install(this)
         createNotificationChannels()
         schedulePeriodicPurge()
+        // Keep the home-screen widgets in step with the task list.
+        appScope.launch {
+            noteRepository.getTasks().debounce(800).collect { refreshWidgets(this@QuillNotesApp) }
+        }
         // Keep the background sync job in step with the Auto-sync preference.
         appScope.launch {
             preferences.autoSync.distinctUntilChanged().collect { SyncWorker.setEnabled(this@QuillNotesApp, it) }

@@ -111,6 +111,14 @@ class NoteSearchTest {
         assertEquals(listOf("new", "old"), titles(NoteSearch.search(all, "  ", SearchFilters(types = setOf(NoteType.NOTE)))))
     }
 
+    @Test fun `locked notes expose their title only`() {
+        val locked = note("Diary", "secret plans").copy(isLocked = true)
+        assertTrue(NoteSearch.search(listOf(locked), "secret").isEmpty())
+        val hit = NoteSearch.search(listOf(locked), "diary").single()
+        assertEquals("", hit.snippet)
+        assertEquals("", NoteSearch.search(listOf(locked), "").single().snippet)
+    }
+
     @Test fun `no match returns nothing`() {
         assertTrue(NoteSearch.search(listOf(note("a", "b")), "zzz").isEmpty())
     }

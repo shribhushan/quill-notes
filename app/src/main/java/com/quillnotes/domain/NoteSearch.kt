@@ -59,13 +59,14 @@ object NoteSearch {
 
         if (tokens.isEmpty()) {
             return candidates.sortedByDescending { it.updatedAt }.map { note ->
-                SearchHit(note, 0, emptyList(), excerpt(Markdown.toPlain(note.content)), emptyList())
+                SearchHit(note, 0, emptyList(), if (note.isLocked) "" else excerpt(Markdown.toPlain(note.content)), emptyList())
             }
         }
 
         val hits = ArrayList<SearchHit>()
         for (note in candidates) {
-            val plain = Markdown.toPlain(note.content)
+            // A locked note's text must not show up in results, so only its title is searchable.
+            val plain = if (note.isLocked) "" else Markdown.toPlain(note.content)
             val title = fold(note.title)
             val body = fold(plain)
             val tags = fold(note.tags)

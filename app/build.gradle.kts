@@ -169,6 +169,13 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
 
+    // Home-screen widgets
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+
+    // On-device OCR for "scan to text" (bundled models: works offline; Latin + Devanagari)
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+
     // Biometric authentication
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
 
@@ -182,6 +189,7 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")

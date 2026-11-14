@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_add"
+        android:shortcutShortLabel="@string/shortcut_new_note"
+        android:shortcutLongLabel="@string/shortcut_new_note_long">
+        <intent
+            android:action="com.quillnotes.action.NEW_NOTE"
+            android:targetClass="com.quillnotes.MainActivity"
+            android:targetPackage="com.quillnotes" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_task"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_task"
+        android:shortcutShortLabel="@string/shortcut_new_task"
+        android:shortcutLongLabel="@string/shortcut_new_task_long">
+        <intent
+            android:action="com.quillnotes.action.NEW_TASK"
+            android:targetClass="com.quillnotes.MainActivity"
+            android:targetPackage="com.quillnotes" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_voice"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_mic"
+        android:shortcutShortLabel="@string/shortcut_voice_note"
+        android:shortcutLongLabel="@string/shortcut_voice_note_long">
+        <intent
+            android:action="com.quillnotes.action.NEW_VOICE"
+            android:targetClass="com.quillnotes.MainActivity"
+            android:targetPackage="com.quillnotes" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="search"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_search"
+        android:shortcutShortLabel="@string/shortcut_search"
+        android:shortcutLongLabel="@string/shortcut_search_long">
+        <intent
+            android:action="com.quillnotes.action.SEARCH"
+            android:targetClass="com.quillnotes.MainActivity"
+            android:targetPackage="com.quillnotes" />
+    </shortcut>
+</shortcuts>

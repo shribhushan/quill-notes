@@ -1,5 +1,6 @@
 package com.quillnotes.ui.components
 
+import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -100,6 +101,44 @@ private fun triggerBiometricPrompt(
         .build()
 
     prompt.authenticate(info)
+}
+
+/**
+ * True if this phone can check who is asking: a fingerprint/face is enrolled or a screen lock
+ * (PIN, pattern, password) is set. Without one a "locked" note could not actually be locked.
+ */
+fun canAuthenticate(context: android.content.Context): Boolean =
+    BiometricManager.from(context).canAuthenticate(NOTE_LOCK_AUTHENTICATORS) == BiometricManager.BIOMETRIC_SUCCESS
+
+private const val NOTE_LOCK_AUTHENTICATORS =
+    BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+/**
+ * Asks the user to prove it is them before a locked note opens: biometrics, or the screen lock
+ * as a fallback. [onSuccess] runs only on success; [onFailure] if they cancel or it is unavailable.
+ */
+fun authenticateForNote(
+    context: android.content.Context,
+    title: String,
+    subtitle: String,
+    onSuccess: () -> Unit,
+    onFailure: () -> Unit = {}
+) {
+    val activity = context as? FragmentActivity
+    if (activity == null || !canAuthenticate(context)) {
+        onFailure()
+        return
+    }
+    val callback = object : BiometricPrompt.AuthenticationCallback() {
+        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onSuccess()
+        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onFailure()
+    }
+    val info = BiometricPrompt.PromptInfo.Builder()
+        .setTitle(title)
+        .setSubtitle(subtitle)
+        .setAllowedAuthenticators(NOTE_LOCK_AUTHENTICATORS)
+        .build()
+    BiometricPrompt(activity, ContextCompat.getMainExecutor(context), callback).authenticate(info)
 }
 
 /** Shown while the app is locked; also used directly by screenshot tests. */

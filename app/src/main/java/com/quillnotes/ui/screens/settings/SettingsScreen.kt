@@ -63,6 +63,36 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.rounded.AccessTime
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Backup
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.FileDownload
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.CrashReporter
+import com.quillnotes.R
+import com.quillnotes.ui.components.PassphraseDialog
+import com.quillnotes.ui.components.QuillTimePickerDialog
+import com.quillnotes.ui.components.rememberNotificationPermissionRequest
+import com.quillnotes.ui.util.timeOfDay
+import com.quillnotes.ui.util.withTimeOfDay
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.quillnotes.BuildConfig
 import com.quillnotes.ui.components.CircleIconButton
 import com.quillnotes.ui.components.IconBadge
@@ -85,6 +115,11 @@ data class SettingsUiState(
     val fontSize: String = "medium",
     val biometricLock: Boolean = false,
     val autoSync: Boolean = false,
+    val journalReminder: Boolean = false,
+    val journalReminderMinutes: Int = 21 * 60,
+    val working: Boolean = false,
+    val result: DataResult? = null,
+    val hasCrashReport: Boolean = false,
     val versionName: String = BuildConfig.VERSION_NAME
 )
 
@@ -94,9 +129,20 @@ class SettingsActions(
     val onFontSizeChange: (String) -> Unit = {},
     val onBiometricChange: (Boolean) -> Unit = {},
     val onAutoSyncChange: (Boolean) -> Unit = {},
+    val onJournalReminderChange: (Boolean) -> Unit = {},
+    val onJournalReminderTime: (Int) -> Unit = {},
     val onOpenSync: () -> Unit = {},
-    val onOpenTrash: () -> Unit = {}
+    val onOpenTrash: () -> Unit = {},
+    val onExportMarkdown: () -> Unit = {},
+    val onCreateBackup: () -> Unit = {},
+    val onRestoreBackup: () -> Unit = {},
+    val onDismissResult: () -> Unit = {},
+    val onShowPrivacy: () -> Unit = {},
+    val onSendCrashReport: () -> Unit = {}
 )
+
+/** Which passphrase prompt is open. */
+private enum class PassphraseFor { NONE, NEW_BACKUP, RESTORE }
 
 @Composable
 fun SettingsScreen(
@@ -109,24 +155,128 @@ fun SettingsScreen(
     val biometricLock by viewModel.biometricLock.collectAsState(initial = false)
     val autoSync by viewModel.autoSync.collectAsState(initial = false)
     val fontSize by viewModel.fontSize.collectAsState(initial = "medium")
+    val journalReminder by viewModel.journalReminder.collectAsState(initial = false)
+    val reminderMinutes by viewModel.journalReminderMinutes.collectAsState(initial = 21 * 60)
+    val working by viewModel.working.collectAsState()
+    val result by viewModel.result.collectAsState()
+    val context = LocalContext.current
+    val requestNotifications = rememberNotificationPermissionRequest()
+
+    var passphraseFor by rememberSaveable { mutableStateOf(PassphraseFor.NONE) }
+    var restoreUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var pendingPassphrase by remember { mutableStateOf<String?>(null) } // never saved: it is a secret
+    var showPrivacy by rememberSaveable { mutableStateOf(false) }
+    var hasCrash by remember { mutableStateOf(CrashReporter.pending(context) != null) }
+    val stamp = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()) }
+
+    val markdownPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) viewModel.exportMarkdown(uri)
+    }
+    val backupPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
+        val passphrase = pendingPassphrase
+        pendingPassphrase = null
+        if (uri != null && passphrase != null) viewModel.exportBackup(uri, passphrase)
+    }
+    val restorePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            restoreUri = uri
+            passphraseFor = PassphraseFor.RESTORE
+        }
+    }
+
+    // A finished restore or a damaged file closes the prompt; a wrong passphrase leaves it open to retry.
+    LaunchedEffect(result) {
+        when (result) {
+            is DataResult.Restored, DataResult.NotABackup, DataResult.Failed -> if (passphraseFor == PassphraseFor.RESTORE) passphraseFor = PassphraseFor.NONE
+            else -> Unit
+        }
+    }
 
     SettingsContent(
-        state = SettingsUiState(theme, fontSize, biometricLock, autoSync),
+        state = SettingsUiState(
+            theme = theme, fontSize = fontSize, biometricLock = biometricLock, autoSync = autoSync,
+            journalReminder = journalReminder, journalReminderMinutes = reminderMinutes,
+            working = working, result = result, hasCrashReport = hasCrash
+        ),
         actions = SettingsActions(
             onBack = onBack,
             onThemeChange = viewModel::setTheme,
             onFontSizeChange = viewModel::setFontSize,
             onBiometricChange = viewModel::setBiometricLock,
             onAutoSyncChange = viewModel::setAutoSync,
+            onJournalReminderChange = { enabled ->
+                if (enabled) requestNotifications()
+                viewModel.setJournalReminder(enabled)
+            },
+            onJournalReminderTime = viewModel::setJournalReminderTime,
             onOpenSync = onSyncClick,
-            onOpenTrash = onTrashClick
+            onOpenTrash = onTrashClick,
+            onExportMarkdown = { markdownPicker.launch("quill-notes-$stamp.zip") },
+            onCreateBackup = { passphraseFor = PassphraseFor.NEW_BACKUP },
+            onRestoreBackup = { restorePicker.launch(arrayOf("*/*")) },
+            onDismissResult = viewModel::clearResult,
+            onShowPrivacy = { showPrivacy = true },
+            onSendCrashReport = {
+                CrashReporter.pending(context)?.let { report ->
+                    val send = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.crash_report_subject))
+                        putExtra(Intent.EXTRA_TEXT, report)
+                    }
+                    context.startActivity(Intent.createChooser(send, null))
+                    CrashReporter.clear(context)
+                    hasCrash = false
+                }
+            }
         )
     )
+
+    when (passphraseFor) {
+        PassphraseFor.NEW_BACKUP -> PassphraseDialog(
+            title = stringResource(R.string.backup_create_title),
+            message = stringResource(R.string.backup_create_message),
+            confirmLabel = stringResource(R.string.backup_choose_location),
+            creating = true,
+            onSubmit = { passphrase ->
+                pendingPassphrase = passphrase
+                passphraseFor = PassphraseFor.NONE
+                backupPicker.launch("quill-backup-$stamp.qbackup")
+            },
+            onDismiss = { passphraseFor = PassphraseFor.NONE }
+        )
+        PassphraseFor.RESTORE -> PassphraseDialog(
+            title = stringResource(R.string.backup_restore_title),
+            message = stringResource(R.string.backup_restore_message),
+            confirmLabel = stringResource(R.string.backup_restore_action),
+            creating = false,
+            onSubmit = { passphrase -> restoreUri?.let { viewModel.importBackup(it, passphrase) } },
+            onDismiss = { passphraseFor = PassphraseFor.NONE },
+            error = if (result == DataResult.WrongPassphrase) stringResource(R.string.backup_wrong_passphrase) else null,
+            busy = working
+        )
+        PassphraseFor.NONE -> Unit
+    }
+
+    if (showPrivacy) {
+        AlertDialog(
+            onDismissRequest = { showPrivacy = false },
+            title = { Text(stringResource(R.string.privacy_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.privacy_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.verticalScroll(rememberScrollState())
+                )
+            },
+            confirmButton = { TextButton(onClick = { showPrivacy = false }) { Text(stringResource(R.string.close)) } }
+        )
+    }
 }
 
 @Composable
 fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
+    var showTimePicker by remember { mutableStateOf(false) }
     Column(
         modifier
             .fillMaxSize()
@@ -138,29 +288,31 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             .padding(bottom = 32.dp)
     ) {
         ScreenHeader(
-            title = "Settings",
-            eyebrow = "Quill Notes",
+            title = stringResource(R.string.settings),
+            eyebrow = stringResource(R.string.app_name),
             leading = {
                 CircleIconButton(
                     icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     onClick = actions.onBack
                 )
             }
         )
 
-        SectionLabel("Theme", padding = PaddingValues(top = 22.dp, bottom = 12.dp))
+        ResultBanner(state, actions)
+
+        SectionLabel(stringResource(R.string.settings_theme), padding = PaddingValues(top = 22.dp, bottom = 12.dp))
         ThemePicker(selected = state.theme, onSelect = actions.onThemeChange)
 
-        SectionLabel("Text size", padding = PaddingValues(top = 22.dp, bottom = 12.dp))
+        SectionLabel(stringResource(R.string.settings_text_size), padding = PaddingValues(top = 22.dp, bottom = 12.dp))
         FontSizeControl(selected = state.fontSize, onSelect = actions.onFontSizeChange)
 
-        SettingsGroup("Privacy & security") {
+        SettingsGroup(stringResource(R.string.settings_privacy_security)) {
             SettingsRow(
                 icon = Icons.Rounded.Fingerprint,
                 badge = Color(0xFF7B53D6),
-                title = "Biometric lock",
-                subtitle = "Ask for fingerprint or face unlock to open",
+                title = stringResource(R.string.settings_biometric_title),
+                subtitle = stringResource(R.string.settings_biometric_subtitle),
                 trailing = { QuillSwitch(state.biometricLock, actions.onBiometricChange) },
                 onClick = { actions.onBiometricChange(!state.biometricLock) }
             )
@@ -168,17 +320,40 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             SettingsRow(
                 icon = Icons.Rounded.Lock,
                 badge = Color(0xFF2E7D4F),
-                title = "Encrypted on device",
-                subtitle = "Every note is sealed with AES-256-GCM"
+                title = stringResource(R.string.settings_encrypted_title),
+                subtitle = stringResource(R.string.settings_encrypted_subtitle)
             )
         }
 
-        SettingsGroup("Sync & storage") {
+        SettingsGroup(stringResource(R.string.settings_reminders)) {
+            SettingsRow(
+                icon = Icons.Rounded.AutoStories,
+                badge = Color(0xFFD9534F),
+                title = stringResource(R.string.settings_journal_reminder_title),
+                subtitle = if (state.journalReminder) stringResource(R.string.settings_journal_reminder_on, formatMinutes(state.journalReminderMinutes))
+                else stringResource(R.string.settings_journal_reminder_off),
+                trailing = { QuillSwitch(state.journalReminder, actions.onJournalReminderChange) },
+                onClick = { actions.onJournalReminderChange(!state.journalReminder) }
+            )
+            if (state.journalReminder) {
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Rounded.AccessTime,
+                    badge = Color(0xFFE2741F),
+                    title = stringResource(R.string.settings_journal_reminder_time),
+                    subtitle = formatMinutes(state.journalReminderMinutes),
+                    onClick = { showTimePicker = true },
+                    trailing = { Chevron() }
+                )
+            }
+        }
+
+        SettingsGroup(stringResource(R.string.settings_sync_storage)) {
             SettingsRow(
                 icon = Icons.Rounded.CloudSync,
                 badge = Color(0xFF3D74DB),
-                title = "Cloud sync",
-                subtitle = "Google Drive and OneDrive backups",
+                title = stringResource(R.string.settings_cloud_sync_title),
+                subtitle = stringResource(R.string.settings_cloud_sync_subtitle),
                 onClick = actions.onOpenSync,
                 trailing = { Chevron() }
             )
@@ -186,8 +361,8 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             SettingsRow(
                 icon = Icons.Rounded.Sync,
                 badge = Color(0xFF0E9AA7),
-                title = "Auto-sync",
-                subtitle = "Back up changes automatically",
+                title = stringResource(R.string.settings_auto_sync_title),
+                subtitle = stringResource(R.string.settings_auto_sync_subtitle),
                 trailing = { QuillSwitch(state.autoSync, actions.onAutoSyncChange) },
                 onClick = { actions.onAutoSyncChange(!state.autoSync) }
             )
@@ -195,28 +370,138 @@ fun SettingsContent(state: SettingsUiState, actions: SettingsActions, modifier: 
             SettingsRow(
                 icon = Icons.Rounded.DeleteOutline,
                 badge = Color(0xFFD9534F),
-                title = "Trash",
-                subtitle = "Restore notes deleted in the last 30 days",
+                title = stringResource(R.string.settings_trash_title),
+                subtitle = stringResource(R.string.settings_trash_subtitle),
                 onClick = actions.onOpenTrash,
                 trailing = { Chevron() }
             )
         }
 
-        SettingsGroup("About") {
+        SettingsGroup(stringResource(R.string.settings_your_data)) {
+            SettingsRow(
+                icon = Icons.Rounded.FileDownload,
+                badge = Color(0xFF2E7D4F),
+                title = stringResource(R.string.settings_export_markdown_title),
+                subtitle = stringResource(R.string.settings_export_markdown_subtitle),
+                onClick = if (state.working) null else actions.onExportMarkdown,
+                trailing = { if (state.working) WorkingIndicator() else Chevron() }
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Backup,
+                badge = Color(0xFF3D74DB),
+                title = stringResource(R.string.settings_backup_title),
+                subtitle = stringResource(R.string.settings_backup_subtitle),
+                onClick = if (state.working) null else actions.onCreateBackup,
+                trailing = { Chevron() }
+            )
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Restore,
+                badge = Color(0xFF7B53D6),
+                title = stringResource(R.string.settings_restore_title),
+                subtitle = stringResource(R.string.settings_restore_subtitle),
+                onClick = if (state.working) null else actions.onRestoreBackup,
+                trailing = { Chevron() }
+            )
+        }
+
+        SettingsGroup(stringResource(R.string.settings_about)) {
             SettingsRow(
                 icon = Icons.Rounded.Info,
                 badge = scheme.onSurfaceVariant,
-                title = "Quill Notes",
-                subtitle = "Version ${state.versionName}"
+                title = stringResource(R.string.app_name),
+                subtitle = stringResource(R.string.settings_version, state.versionName)
             )
             RowDivider()
             SettingsRow(
                 icon = Icons.Rounded.Shield,
                 badge = Color(0xFFE2741F),
-                title = "Your data stays yours",
-                subtitle = "No ads, no tracking. Notes leave the device only when you sync."
+                title = stringResource(R.string.settings_data_yours_title),
+                subtitle = stringResource(R.string.settings_data_yours_subtitle),
+                onClick = actions.onShowPrivacy,
+                trailing = { Chevron() }
             )
+            if (state.hasCrashReport) {
+                RowDivider()
+                SettingsRow(
+                    icon = Icons.Rounded.BugReport,
+                    badge = Color(0xFFD9534F),
+                    title = stringResource(R.string.settings_crash_title),
+                    subtitle = stringResource(R.string.settings_crash_subtitle),
+                    onClick = actions.onSendCrashReport,
+                    trailing = { Chevron() }
+                )
+            }
         }
+    }
+
+    if (showTimePicker) {
+        QuillTimePickerDialog(
+            title = stringResource(R.string.settings_journal_reminder_time),
+            initialHour = state.journalReminderMinutes / 60,
+            initialMinute = state.journalReminderMinutes % 60,
+            onDismiss = { showTimePicker = false },
+            onConfirm = { h, m ->
+                showTimePicker = false
+                actions.onJournalReminderTime(h * 60 + m)
+            }
+        )
+    }
+}
+
+/** "9:30 PM" for a time of day given as minutes after midnight. */
+@Composable
+private fun formatMinutes(minutes: Int): String = timeOfDay(withTimeOfDay(System.currentTimeMillis(), minutes / 60, minutes % 60))
+
+@Composable
+private fun WorkingIndicator() {
+    androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+}
+
+/** The outcome of the last export or restore, until dismissed. */
+@Composable
+private fun ResultBanner(state: SettingsUiState, actions: SettingsActions) {
+    val result = state.result ?: return
+    val scheme = MaterialTheme.colorScheme
+    val quill = QuillTheme.colors
+    val isError = result is DataResult.WrongPassphrase || result is DataResult.NotABackup || result is DataResult.Failed
+    val text = when (result) {
+        is DataResult.MarkdownExported -> stringResource(R.string.result_markdown_exported, result.notes, result.images)
+        is DataResult.BackupCreated -> stringResource(R.string.result_backup_created, result.notes, result.images)
+        is DataResult.Restored -> stringResource(
+            R.string.result_restored, result.summary.added, result.summary.updated, result.summary.skipped, result.summary.images
+        )
+        DataResult.WrongPassphrase -> stringResource(R.string.backup_wrong_passphrase)
+        DataResult.NotABackup -> stringResource(R.string.result_not_a_backup)
+        DataResult.Failed -> stringResource(R.string.result_failed)
+    }
+    // A wrong passphrase is shown inside the prompt instead.
+    if (result is DataResult.WrongPassphrase) return
+    androidx.compose.runtime.LaunchedEffect(result) {
+        if (!isError) {
+            kotlinx.coroutines.delay(6_000)
+            actions.onDismissResult()
+        }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .padding(top = 14.dp)
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (isError) scheme.errorContainer else quill.successContainer)
+            .clickable(onClick = actions.onDismissResult)
+            .padding(16.dp)
+    ) {
+        Icon(
+            if (isError) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle,
+            contentDescription = null,
+            tint = if (isError) scheme.onErrorContainer else quill.success,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(text, style = MaterialTheme.typography.bodyMedium, color = if (isError) scheme.onErrorContainer else scheme.onSurface)
     }
 }
 

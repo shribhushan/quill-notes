@@ -1,6 +1,9 @@
 package com.quillnotes.ui
 
 import com.quillnotes.ui.util.dayLabel
+import com.quillnotes.ui.util.hourOf
+import com.quillnotes.ui.util.minuteOf
+import com.quillnotes.ui.util.withTimeOfDay
 import com.quillnotes.ui.util.dueLabel
 import com.quillnotes.ui.util.joinTags
 import com.quillnotes.ui.util.localToPickerDate
@@ -85,6 +88,16 @@ class FormattersTest {
         TimeZone.setDefault(TimeZone.getTimeZone("Pacific/Honolulu"))
         assertEquals(Calendar.getInstance().apply { clear(); set(2026, 10, 14, 9, 0, 0) }.timeInMillis, pickerDateToLocal(utcMidnight, 9))
         assertEquals(utcMidnight, localToPickerDate(pickerDateToLocal(utcMidnight, 23)))
+    }
+
+    @Test fun `time of day can be set without moving the date`() {
+        val ts = at(2026, 11, 14, 9, 0)
+        val moved = withTimeOfDay(ts, 18, 45)
+        assertEquals(at(2026, 11, 14, 18, 45), moved)
+        assertEquals(18, hourOf(moved))
+        assertEquals(45, minuteOf(moved))
+        val utcMidnight = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { clear(); set(2026, 10, 20) }.timeInMillis
+        assertEquals(at(2026, 11, 20, 7, 30), pickerDateToLocal(utcMidnight, 7, 30))
     }
 
     @Test fun `tags parse trim and de-duplicate`() {

@@ -58,6 +58,22 @@ import com.quillnotes.ui.util.parseTags
 import com.quillnotes.ui.util.relativeTime
 import com.quillnotes.ui.util.startOfDay
 import com.quillnotes.ui.util.timeOfDay
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import com.quillnotes.R
+import com.quillnotes.data.local.entity.AttachmentEntity
+import com.quillnotes.domain.Priority
+import com.quillnotes.domain.RepeatRule
+import com.quillnotes.text.Checklist
+import com.quillnotes.text.LineKind
+import com.quillnotes.text.Markdown
+import com.quillnotes.text.MarkdownPreview
 
 @Composable
 fun NoteCard(
@@ -68,7 +84,9 @@ fun NoteCard(
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
     previewLines: Int = 6,
-    now: Long = System.currentTimeMillis()
+    now: Long = System.currentTimeMillis(),
+    cover: AttachmentEntity? = null,
+    onToggleChecklist: ((Int) -> Unit)? = null
 ) {
     val quill = QuillTheme.colors
     val scheme = MaterialTheme.colorScheme
@@ -77,6 +95,7 @@ fun NoteCard(
     val container = tone?.container ?: quill.card
     val contentColor = tone?.content ?: scheme.onSurface
     val secondary = contentColor.copy(alpha = 0.66f)
+    val accent = tone?.accent ?: scheme.primary
     val tags = remember(note.tags) { parseTags(note.tags) }
     val interaction = remember { MutableInteractionSource() }
 
@@ -105,7 +124,17 @@ fun NoteCard(
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             val hasTitle = note.title.isNotBlank()
-            val hasBody = note.content.isNotBlank()
+            val hasBody = note.content.isNotBlank() && !note.isLocked
+            if (cover != null && !note.isLocked) {
+                val ratio = if (cover.width > 0 && cover.height > 0) (cover.width.toFloat() / cover.height).coerceIn(0.75f, 1.8f) else 1.4f
+                AttachmentImage(
+                    uuid = cover.uuid,
+                    maxEdge = 512,
+                    pending = !cover.hasLocalFile,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(10.dp))
+                )
+                Spacer(Modifier.height(10.dp))
+            }
             if (hasTitle) {
                 Text(
                     text = note.title,
@@ -116,19 +145,36 @@ fun NoteCard(
                     modifier = Modifier.padding(end = if (selectionMode) 24.dp else 0.dp)
                 )
             }
-            if (hasBody) {
+            if (note.isLocked) {
                 if (hasTitle) Spacer(Modifier.height(6.dp))
-                Text(
-                    text = note.content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = secondary,
-                    maxLines = previewLines,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Lock, contentDescription = null, tint = secondary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.locked_note_label), style = MaterialTheme.typography.bodyMedium, color = secondary)
+                }
+            } else if (hasBody) {
+                if (hasTitle) Spacer(Modifier.height(6.dp))
+                if (Markdown.isRich(note.content)) {
+                    MarkdownPreviewBlock(
+                        content = note.content,
+                        maxLines = previewLines,
+                        color = secondary,
+                        accent = accent,
+                        onToggle = onToggleChecklist
+                    )
+                } else {
+                    Text(
+                        text = note.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = secondary,
+                        maxLines = previewLines,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-            if (!hasTitle && !hasBody) {
+            if (!hasTitle && !hasBody && !note.isLocked && cover == null) {
                 Text(
-                    text = "Empty note",
+                    text = stringResource(R.string.empty_note),
                     style = MaterialTheme.typography.headlineSmall.copy(fontStyle = FontStyle.Italic),
                     color = secondary
                 )
@@ -155,11 +201,15 @@ fun NoteCard(
                     color = secondary,
                     modifier = Modifier.weight(1f)
                 )
+                if (note.isLocked) {
+                    Icon(Icons.Rounded.Lock, contentDescription = null, tint = secondary, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
                 if (note.isPinned) {
                     Icon(
                         Icons.Rounded.PushPin,
-                        contentDescription = "Pinned",
-                        tint = tone?.accent ?: scheme.primary,
+                        contentDescription = stringResource(R.string.pinned),
+                        tint = accent,
                         modifier = Modifier.size(15.dp)
                     )
                 }
@@ -173,6 +223,100 @@ fun NoteCard(
             modifier = Modifier.align(Alignment.TopEnd).padding(12.dp)
         ) {
             SelectionBadge(isSelected)
+        }
+    }
+}
+
+/**
+ * A note's text drawn as the Markdown it is: headings bold, bullets as bullets, and checklist
+ * items as boxes that can be ticked straight from the card.
+ */
+@Composable
+fun MarkdownPreviewBlock(
+    content: String,
+    maxLines: Int,
+    color: Color,
+    accent: Color,
+    onToggle: ((lineIndex: Int) -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    val preview = remember(content, maxLines) { MarkdownPreview.build(content, maxLines) }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        preview.lines.forEach { line ->
+            val indent = (line.indent / 2 * 14).dp
+            when (line.kind) {
+                LineKind.CHECK -> Row(Modifier.padding(start = indent), verticalAlignment = Alignment.Top) {
+                    MiniCheck(
+                        checked = line.checked,
+                        accent = accent,
+                        outline = color,
+                        onClick = onToggle?.let { toggle -> { toggle(line.lineIndex) } }
+                    )
+                    Text(
+                        text = line.text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (line.checked) color.copy(alpha = 0.55f) else color,
+                        textDecoration = if (line.checked) TextDecoration.LineThrough else TextDecoration.None,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 5.dp)
+                    )
+                }
+                LineKind.BULLET -> Row(Modifier.padding(start = indent)) {
+                    Text("•", style = MaterialTheme.typography.bodyMedium, color = accent, modifier = Modifier.width(14.dp))
+                    Text(line.text, style = MaterialTheme.typography.bodyMedium, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                LineKind.NUMBERED -> Row(Modifier.padding(start = indent)) {
+                    Text("${line.number}.", style = MaterialTheme.typography.bodyMedium, color = accent, modifier = Modifier.width(22.dp))
+                    Text(line.text, style = MaterialTheme.typography.bodyMedium, color = color, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                LineKind.HEADING -> Text(
+                    line.text,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = color,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                LineKind.QUOTE -> Text(
+                    line.text,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
+                    color = color.copy(alpha = 0.85f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                LineKind.PLAIN -> Text(
+                    line.text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = color,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (preview.truncated) Text("…", style = MaterialTheme.typography.bodyMedium, color = color)
+    }
+}
+
+/** A small round checkbox with a comfortable touch area; read-only when [onClick] is null. */
+@Composable
+private fun MiniCheck(checked: Boolean, accent: Color, outline: Color, onClick: (() -> Unit)?) {
+    val fill by animateColorAsState(if (checked) accent else Color.Transparent, label = "miniCheckFill")
+    Box(
+        modifier = Modifier
+            .size(30.dp)
+            .clip(CircleShape)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .clip(CircleShape)
+                .background(fill)
+                .border(1.5.dp, if (checked) accent else outline.copy(alpha = 0.7f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            if (checked) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
         }
     }
 }
@@ -379,7 +523,34 @@ fun DueChip(dueDate: Long, completed: Boolean, modifier: Modifier = Modifier, no
     ) {
         Icon(Icons.Rounded.Event, contentDescription = null, tint = fg, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(4.dp))
-        Text(dueLabel(dueDate, now), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
+        Text(dueLabel(dueDate, now) + " · " + timeOfDay(dueDate), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
+    }
+}
+
+/** "2/5" for a task whose notes hold a checklist of sub-steps. */
+@Composable
+fun SubtaskChip(done: Int, total: Int, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val finished = done == total
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .clip(CircleShape)
+            .background(if (finished) scheme.tertiaryContainer else scheme.surfaceVariant)
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    ) {
+        Icon(
+            Icons.Rounded.Checklist,
+            contentDescription = null,
+            tint = if (finished) scheme.onTertiaryContainer else scheme.onSurfaceVariant,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "$done/$total",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (finished) scheme.onTertiaryContainer else scheme.onSurfaceVariant
+        )
     }
 }
 
@@ -397,6 +568,12 @@ fun TaskRow(
     val tone = quill.toneFor(task.color)
     val done = task.isCompleted
     val tags = remember(task.tags) { parseTags(task.tags) }
+    val progress = remember(task.content) { Checklist.progress(task.content) }
+    val detail = remember(task.content, progress) {
+        if (progress != null) null
+        else Markdown.toPlain(task.content).lineSequence().firstOrNull { it.isNotBlank() }
+    }
+    val priority = Priority.of(task.priority)
     val interaction = remember { MutableInteractionSource() }
     val titleColor by animateColorAsState(
         if (done) scheme.onSurfaceVariant.copy(alpha = 0.7f) else scheme.onSurface,
@@ -421,27 +598,49 @@ fun TaskRow(
         )
         Spacer(Modifier.width(4.dp))
         Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
-            Text(
-                text = task.title.ifBlank { "Untitled task" },
-                style = MaterialTheme.typography.titleMedium,
-                color = titleColor,
-                textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (task.content.isNotBlank()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (priority != Priority.NONE && !done) {
+                    Icon(
+                        Icons.Rounded.Flag,
+                        contentDescription = priorityLabel(priority),
+                        tint = priorityColor(priority) ?: scheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
                 Text(
-                    text = task.content,
+                    text = task.title.ifBlank { stringResource(R.string.untitled_task) },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = titleColor,
+                    textDecoration = if (done) TextDecoration.LineThrough else TextDecoration.None,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+            }
+            if (!detail.isNullOrBlank()) {
+                Text(
+                    text = detail,
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (task.dueDate != null || tags.isNotEmpty()) {
+            val repeats = RepeatRule.parse(task.repeatRule) != null
+            if (task.dueDate != null || tags.isNotEmpty() || progress != null) {
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     task.dueDate?.let { DueChip(it, done, now = now) }
+                    if (repeats) {
+                        Icon(
+                            Icons.Rounded.Repeat,
+                            contentDescription = stringResource(R.string.repeat_chip_desc),
+                            tint = scheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                    progress?.let { (d, t) -> SubtaskChip(d, t) }
                     tags.firstOrNull()?.let { TagPill(it, scheme.onSurface) }
                 }
             }
