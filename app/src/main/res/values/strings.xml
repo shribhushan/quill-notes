@@ -54,4 +54,16 @@
     <string name="cd_back">Go back</string>
     <string name="cd_save">Save note</string>
     <string name="cd_sync">Sync notes</string>
+
+    <!-- Notifications -->
+    <string name="channel_task_reminders">Task reminders</string>
+    <string name="channel_task_reminders_desc">Reminders for your scheduled tasks</string>
+    <string name="channel_journal_reminder">Journal reminder</string>
+    <string name="channel_journal_reminder_desc">A gentle daily prompt to write in your journal</string>
+    <string name="reminder_task_due">Task due</string>
+    <string name="reminder_untitled_task">Untitled task</string>
+    <string name="reminder_done">Done</string>
+    <string name="reminder_snooze">Snooze 1h</string>
+    <string name="journal_reminder_title">Time to journal</string>
+    <string name="journal_reminder_text">How was your day? Take a minute to write it down.</string>
 </resources>

@@ -240,6 +240,9 @@ class NoteRepository @Inject constructor(
 
     suspend fun readAttachment(uuid: String): ByteArray? = withContext(Dispatchers.IO) { files.read(uuid) }
 
+    /** For callers already on a background thread (bulk export). */
+    fun readAttachmentBlocking(uuid: String): ByteArray? = files.read(uuid)
+
     private suspend fun dropAttachmentsOf(noteUuid: String) {
         val owned = attachmentDao.getForNote(noteUuid)
         attachmentDao.deleteForNote(noteUuid)
@@ -420,6 +423,7 @@ class NoteRepository @Inject constructor(
 
     /** Stores an attachment's bytes from a backup and marks it present. */
     suspend fun importAttachmentFile(uuid: String, bytes: ByteArray) {
+        if (attachmentDao.countByUuid(uuid) == 0) return // belongs to a note that was not imported
         withContext(Dispatchers.IO) { files.write(uuid, bytes) }
         attachmentDao.markFilePresent(uuid)
     }

@@ -24,6 +24,13 @@ class PreferencesRepository @Inject constructor(
         val SORT_ORDER_KEY = stringPreferencesKey("sort_order")
         val FONT_SIZE_KEY = stringPreferencesKey("font_size")
         val NOTES_VIEW_MODE_KEY = stringPreferencesKey("notes_view_mode")
+        val ONBOARDING_DONE_KEY = booleanPreferencesKey("onboarding_done")
+        val JOURNAL_REMINDER_KEY = booleanPreferencesKey("journal_reminder")
+        val JOURNAL_REMINDER_MINUTES_KEY = intPreferencesKey("journal_reminder_minutes")
+        val NOTEBOOKS_KEY = stringSetPreferencesKey("notebooks")
+        val PLANNER_VIEW_KEY = stringPreferencesKey("planner_view")
+        val JOURNAL_VIEW_KEY = stringPreferencesKey("journal_view")
+        const val DEFAULT_JOURNAL_REMINDER_MINUTES = 21 * 60
     }
 
     // ── Theme ──────────────────────────────────────────────────
@@ -86,4 +93,61 @@ class PreferencesRepository @Inject constructor(
     suspend fun setNotesViewMode(mode: String) {
         context.dataStore.edit { it[NOTES_VIEW_MODE_KEY] = mode }
     }
+
+    // ── Onboarding ─────────────────────────────────────────────
+    val onboardingDone: Flow<Boolean> = context.dataStore.data.map { it[ONBOARDING_DONE_KEY] ?: false }
+
+    suspend fun setOnboardingDone(done: Boolean) {
+        context.dataStore.edit { it[ONBOARDING_DONE_KEY] = done }
+    }
+
+    // ── Journal reminder ───────────────────────────────────────
+    val journalReminderEnabled: Flow<Boolean> = context.dataStore.data.map { it[JOURNAL_REMINDER_KEY] ?: false }
+
+    /** Minutes after midnight, local time. */
+    val journalReminderMinutes: Flow<Int> =
+        context.dataStore.data.map { it[JOURNAL_REMINDER_MINUTES_KEY] ?: DEFAULT_JOURNAL_REMINDER_MINUTES }
+
+    suspend fun setJournalReminderEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[JOURNAL_REMINDER_KEY] = enabled }
+    }
+
+    suspend fun setJournalReminderMinutes(minutes: Int) {
+        context.dataStore.edit { it[JOURNAL_REMINDER_MINUTES_KEY] = minutes.coerceIn(0, 24 * 60 - 1) }
+    }
+
+    // ── Notebooks created by the user (so empty ones persist) ──
+    val notebookNames: Flow<Set<String>> = context.dataStore.data.map { it[NOTEBOOKS_KEY] ?: emptySet() }
+
+    suspend fun addNotebook(name: String) {
+        val n = name.trim()
+        if (n.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val current = prefs[NOTEBOOKS_KEY] ?: emptySet()
+            if (current.none { it.equals(n, ignoreCase = true) }) prefs[NOTEBOOKS_KEY] = current + n
+        }
+    }
+
+    suspend fun removeNotebook(name: String) {
+        context.dataStore.edit { prefs ->
+            prefs[NOTEBOOKS_KEY] = (prefs[NOTEBOOKS_KEY] ?: emptySet()).filterNot { it.equals(name, ignoreCase = true) }.toSet()
+        }
+    }
+
+    suspend fun renameNotebook(from: String, to: String) {
+        val target = to.trim()
+        if (target.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val current = (prefs[NOTEBOOKS_KEY] ?: emptySet()).filterNot { it.equals(from, ignoreCase = true) }.toMutableSet()
+            if (current.none { it.equals(target, ignoreCase = true) }) current += target
+            prefs[NOTEBOOKS_KEY] = current
+        }
+    }
+
+    // ── Remembered view choices ────────────────────────────────
+    val plannerView: Flow<String> = context.dataStore.data.map { it[PLANNER_VIEW_KEY] ?: "list" }
+    suspend fun setPlannerView(view: String) { context.dataStore.edit { it[PLANNER_VIEW_KEY] = view } }
+
+    val journalView: Flow<String> = context.dataStore.data.map { it[JOURNAL_VIEW_KEY] ?: "timeline" }
+    suspend fun setJournalView(view: String) { context.dataStore.edit { it[JOURNAL_VIEW_KEY] = view } }
 }

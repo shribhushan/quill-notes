@@ -47,7 +47,7 @@ class NoteEncryptionManager @Inject constructor(
      * Associated data binds the ciphertext to a context (e.g., note ID)
      * to prevent ciphertext from being swapped between notes.
      */
-    override fun encrypt(plaintext: String, associatedData: String = ""): String {
+    override fun encrypt(plaintext: String, associatedData: String): String {
         if (plaintext.isEmpty()) return ""
         val ciphertext = aead.encrypt(
             plaintext.toByteArray(Charsets.UTF_8),
@@ -59,7 +59,7 @@ class NoteEncryptionManager @Inject constructor(
     /**
      * Decrypts Base64-encoded ciphertext back to plaintext.
      */
-    override fun decrypt(encryptedText: String, associatedData: String = ""): String {
+    override fun decrypt(encryptedText: String, associatedData: String): String {
         if (encryptedText.isEmpty()) return ""
         return try {
             val ciphertext = Base64.decode(encryptedText, Base64.NO_WRAP)

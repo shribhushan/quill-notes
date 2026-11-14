@@ -26,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +36,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.quillnotes.LaunchRequest
 import com.quillnotes.ui.components.DockDestination
 import com.quillnotes.ui.components.QuillDock
 import com.quillnotes.ui.navigation.Screen
@@ -60,20 +60,30 @@ private const val NAV_DURATION = 320
 private fun tabIndex(route: String?): Int = tabRoutes.indexOf(route)
 
 @Composable
-fun QuillNotesMainScreen(initialSharedText: String? = null) {
+fun QuillNotesMainScreen(launchRequest: LaunchRequest = LaunchRequest.NONE) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     var homeSelecting by remember { mutableStateOf(false) }
-    var sharedTextHandled by rememberSaveable { mutableStateOf(false) }
+    /** Text shared into the app; handed to the next editor that opens, once. */
+    val pendingSharedText = remember { mutableStateOf<String?>(null) }
 
     val showDock = currentRoute in tabRoutes && !(currentRoute == Screen.Home.route && homeSelecting)
 
-    // Open a new note pre-filled with text shared into the app.
-    LaunchedEffect(initialSharedText) {
-        if (!initialSharedText.isNullOrBlank() && !sharedTextHandled) {
-            sharedTextHandled = true
-            navController.navigate(Screen.Editor.createRoute())
+    // Act on whatever opened the app: a notification, a shortcut, the share sheet…
+    LaunchedEffect(launchRequest.token) {
+        when (launchRequest.kind) {
+            LaunchRequest.Kind.NONE -> Unit
+            LaunchRequest.Kind.NEW_NOTE -> navController.navigate(Screen.Editor.createRoute())
+            LaunchRequest.Kind.NEW_TASK -> navController.navigate(Screen.Editor.createRoute(noteType = "task"))
+            LaunchRequest.Kind.NEW_JOURNAL -> navController.navigate(Screen.Editor.createRoute(noteType = "journal"))
+            LaunchRequest.Kind.OPEN_NOTE -> navController.navigate(Screen.Editor.createRoute(launchRequest.noteId))
+            LaunchRequest.Kind.OPEN_TASK -> navController.navigate(Screen.Editor.createRoute(launchRequest.noteId, "task"))
+            LaunchRequest.Kind.SEARCH -> Unit // handled once the search screen exists
+            LaunchRequest.Kind.SHARED_TEXT -> {
+                pendingSharedText.value = launchRequest.sharedText
+                navController.navigate(Screen.Editor.createRoute())
+            }
         }
     }
 
@@ -160,10 +170,14 @@ fun QuillNotesMainScreen(initialSharedText: String? = null) {
             ) { entry ->
                 val noteId = entry.arguments?.getLong("noteId") ?: -1L
                 val noteType = entry.arguments?.getString("noteType") ?: "note"
+                // Shared text belongs to the editor that was opened for it, and only to that one.
+                val initialContent = remember {
+                    if (noteId == -1L) pendingSharedText.value.also { pendingSharedText.value = null } else null
+                }
                 NoteEditorScreen(
                     noteId = if (noteId == -1L) null else noteId,
                     noteType = noteType,
-                    initialContent = if (noteId == -1L) initialSharedText else null,
+                    initialContent = initialContent,
                     onBack = { navController.popBackStack() }
                 )
             }

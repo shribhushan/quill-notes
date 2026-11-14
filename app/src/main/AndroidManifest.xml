@@ -83,6 +83,16 @@
             android:name=".notifications.ReminderReceiver"
             android:exported="false" />
 
+        <!-- Done / Snooze buttons on a task reminder -->
+        <receiver
+            android:name=".notifications.ReminderActionReceiver"
+            android:exported="false" />
+
+        <!-- Daily "time to journal" prompt -->
+        <receiver
+            android:name=".notifications.JournalReminderReceiver"
+            android:exported="false" />
+
         <!-- ── Reschedule alarms after reboot ───────────────── -->
         <receiver
             android:name=".notifications.BootReceiver"

@@ -36,14 +36,21 @@ class QuillNotesApp : Application() {
     }
 
     private fun createNotificationChannels() {
-        val channel = NotificationChannel(
-            "task_reminders",
-            "Task Reminders",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Reminders for your scheduled tasks"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                "task_reminders",
+                getString(R.string.channel_task_reminders),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply { description = getString(R.string.channel_task_reminders_desc) }
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                "journal_reminder",
+                getString(R.string.channel_journal_reminder),
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply { description = getString(R.string.channel_journal_reminder_desc) }
+        )
     }
 
     private fun schedulePeriodicPurge() {

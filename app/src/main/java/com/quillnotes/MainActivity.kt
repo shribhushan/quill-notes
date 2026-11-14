@@ -1,6 +1,5 @@
 package com.quillnotes
 
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,11 +22,8 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val sharedText = when (intent?.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)
-            Intent.ACTION_PROCESS_TEXT -> intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
-            else -> null
-        }
+        // A recreated activity (rotation, theme change) must not act on the same request twice.
+        val launchRequest = if (savedInstanceState == null) LaunchRequest.from(intent) else LaunchRequest.NONE
 
         setContent {
             QuillNotesTheme {
@@ -36,7 +32,7 @@ class MainActivity : FragmentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     BiometricGate {
-                        QuillNotesMainScreen(initialSharedText = sharedText)
+                        QuillNotesMainScreen(launchRequest = launchRequest)
                     }
                 }
             }
