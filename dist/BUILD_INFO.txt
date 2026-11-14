@@ -1,0 +1,9 @@
+Quill Notes — APK
+Built from commit: 7f9b0c8a86b286b354b46b9662cda836a0cf6a75
+Workflow run:      43618850795
+Built at (UTC):    2026-11-14T17:09:19Z
+SHA-256:           e2c48e992b47d10db42c3bafbb943fe2ac2eb6e54d1193cc50ca84af0f2865a3
+Size:              64M
+
+quill-notes-sideload.apk - debug-signed but minified/shrunk; install this one.
+The unminified debug build is a workflow artifact (too large for a git branch).
