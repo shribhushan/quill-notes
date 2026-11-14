@@ -1,5 +1,6 @@
 package com.quillnotes.data.sync
 
+import com.quillnotes.data.local.entity.AttachmentEntity
 import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.local.entity.NoteType
 
@@ -19,10 +20,29 @@ private const val NOTE_FILE_SUFFIX = ".qnote"
 private val UUID_REGEX = Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 /** [NoteEntity] must already be decrypted. */
-fun NoteEntity.toPayload() = NotePayload(
+fun NoteEntity.toPayload(attachments: List<AttachmentRef> = emptyList()) = NotePayload(
     uuid = uuid, title = title, content = content, type = type.name,
     createdAt = createdAt, updatedAt = updatedAt, isPinned = isPinned, isCompleted = isCompleted,
-    dueDate = dueDate, mood = mood, tags = tags, color = color, isTrashed = isDeleted
+    dueDate = dueDate, mood = mood, tags = tags, color = color, isTrashed = isDeleted,
+    priority = priority, repeatRule = repeatRule, notebook = notebook, isArchived = isArchived,
+    isTemplate = isTemplate, isLocked = isLocked, attachments = attachments
 )
+
+fun AttachmentEntity.toRef() = AttachmentRef(uuid, mimeType, width, height, sizeBytes, createdAt)
+
+/** A local note together with its attachment list, as the sync engine reads it. */
+data class SyncNote(val note: NoteEntity, val attachments: List<AttachmentRef> = emptyList()) {
+    fun toPayload(): NotePayload = note.toPayload(attachments)
+}
+
+/** File name an attachment's encrypted bytes are stored under in the cloud folder. */
+fun attachmentFileName(uuid: String) = "att_$uuid.qatt"
+
+/** Inverse of [attachmentFileName]. */
+fun attachmentUuidFromFileName(name: String): String? {
+    if (!name.startsWith("att_") || !name.endsWith(".qatt")) return null
+    val uuid = name.removePrefix("att_").removeSuffix(".qatt")
+    return uuid.takeIf { UUID_REGEX.matches(it) }
+}
 
 fun NotePayload.noteType(): NoteType = runCatching { NoteType.valueOf(type) }.getOrDefault(NoteType.NOTE)

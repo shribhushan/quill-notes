@@ -31,7 +31,15 @@ data class NoteEntity(
     /** `updatedAt` of the cloud copy as of the last successful sync (0 = never synced). */
     val syncedUpdatedAt: Long = 0,
     val cloudFileId: String? = null,    // Remote file ID for sync
-    val isDeleted: Boolean = false      // Soft delete
+    val isDeleted: Boolean = false,     // Soft delete (trash)
+    /** 0 none, 1 low, 2 medium, 3 high — see [com.quillnotes.domain.Priority]. */
+    val priority: Int = 0,
+    /** Recurrence code such as `1W`, see [com.quillnotes.domain.RepeatRule]; tasks only. */
+    val repeatRule: String? = null,
+    val notebook: String? = null,       // Encrypted notebook (folder) name
+    val isArchived: Boolean = false,    // Hidden from the main list, not deleted
+    val isTemplate: Boolean = false,    // Offered in "new from template"; hidden from lists
+    val isLocked: Boolean = false       // Needs biometrics to open
 )
 
 enum class NoteType {

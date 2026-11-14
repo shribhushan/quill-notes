@@ -20,7 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class NoteEncryptionManager @Inject constructor(
     @ApplicationContext private val context: Context
-) {
+) : NoteCipher {
     companion object {
         private const val KEYSET_NAME = "quill_notes_keyset"
         private const val PREFERENCE_FILE = "quill_notes_keyset_prefs"
@@ -47,7 +47,7 @@ class NoteEncryptionManager @Inject constructor(
      * Associated data binds the ciphertext to a context (e.g., note ID)
      * to prevent ciphertext from being swapped between notes.
      */
-    fun encrypt(plaintext: String, associatedData: String = ""): String {
+    override fun encrypt(plaintext: String, associatedData: String = ""): String {
         if (plaintext.isEmpty()) return ""
         val ciphertext = aead.encrypt(
             plaintext.toByteArray(Charsets.UTF_8),
@@ -59,7 +59,7 @@ class NoteEncryptionManager @Inject constructor(
     /**
      * Decrypts Base64-encoded ciphertext back to plaintext.
      */
-    fun decrypt(encryptedText: String, associatedData: String = ""): String {
+    override fun decrypt(encryptedText: String, associatedData: String = ""): String {
         if (encryptedText.isEmpty()) return ""
         return try {
             val ciphertext = Base64.decode(encryptedText, Base64.NO_WRAP)
@@ -103,6 +103,10 @@ class NoteEncryptionManager @Inject constructor(
      */
     fun encryptForDevice(plain: ByteArray, associatedData: String): ByteArray =
         aead.encrypt(plain, associatedData.toByteArray(Charsets.UTF_8))
+
+    override fun encryptBytes(plain: ByteArray, associatedData: String): ByteArray = encryptForDevice(plain, associatedData)
+
+    override fun decryptBytes(cipher: ByteArray, associatedData: String): ByteArray? = decryptForDevice(cipher, associatedData)
 
     /** Returns null if the bytes do not authenticate (e.g. the Keystore key was lost). */
     fun decryptForDevice(cipher: ByteArray, associatedData: String): ByteArray? = try {

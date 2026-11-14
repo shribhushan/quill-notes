@@ -73,13 +73,21 @@ object BackupKeyCrypto {
 
     /** Encrypts one note file. [fileName] is bound in as associated data so files cannot be swapped. */
     fun encryptNote(dataKey: ByteArray, fileName: String, plaintext: String): ByteArray =
-        NOTE_MAGIC + AesGcmJce(dataKey).encrypt(plaintext.toByteArray(), aad(fileName))
+        encryptBytes(dataKey, fileName, plaintext.toByteArray())
 
     /** Returns null if the bytes are not a v2 note file or do not authenticate under [dataKey]. */
-    fun decryptNote(dataKey: ByteArray, fileName: String, data: ByteArray): String? {
+    fun decryptNote(dataKey: ByteArray, fileName: String, data: ByteArray): String? =
+        decryptBytes(dataKey, fileName, data)?.let { String(it) }
+
+    /** Binary variant of [encryptNote], used for attachment files. */
+    fun encryptBytes(dataKey: ByteArray, fileName: String, plain: ByteArray): ByteArray =
+        NOTE_MAGIC + AesGcmJce(dataKey).encrypt(plain, aad(fileName))
+
+    /** Returns null if the bytes are not one of our files or do not authenticate under [dataKey]. */
+    fun decryptBytes(dataKey: ByteArray, fileName: String, data: ByteArray): ByteArray? {
         if (data.size <= NOTE_MAGIC.size || !data.copyOfRange(0, NOTE_MAGIC.size).contentEquals(NOTE_MAGIC)) return null
         return try {
-            String(AesGcmJce(dataKey).decrypt(data.copyOfRange(NOTE_MAGIC.size, data.size), aad(fileName)))
+            AesGcmJce(dataKey).decrypt(data.copyOfRange(NOTE_MAGIC.size, data.size), aad(fileName))
         } catch (e: GeneralSecurityException) {
             null
         }
@@ -87,7 +95,8 @@ object BackupKeyCrypto {
 
     private fun aad(fileName: String) = "quill.note.v2:$fileName".toByteArray()
 
-    private fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): ByteArray {
+    /** PBKDF2-HMAC-SHA256 of the passphrase (32 bytes). Shared with the backup-file format. */
+    internal fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): ByteArray {
         val spec = PBEKeySpec(passphrase, salt, iterations, KEY_BYTES * 8)
         try {
             return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded

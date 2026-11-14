@@ -37,3 +37,28 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         )
     }
 }
+
+/**
+ * v3 → v4: task priority and recurrence, notebooks, archive, templates, per-note lock, and the
+ * attachments table. New columns default to "off", so existing notes behave as before.
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE notes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE notes ADD COLUMN repeatRule TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE notes ADD COLUMN notebook TEXT DEFAULT NULL")
+        db.execSQL("ALTER TABLE notes ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE notes ADD COLUMN isTemplate INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE notes ADD COLUMN isLocked INTEGER NOT NULL DEFAULT 0")
+
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS attachments (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, uuid TEXT NOT NULL, noteUuid TEXT NOT NULL, " +
+                "mimeType TEXT NOT NULL, width INTEGER NOT NULL, height INTEGER NOT NULL, " +
+                "sizeBytes INTEGER NOT NULL, position INTEGER NOT NULL, createdAt INTEGER NOT NULL, " +
+                "hasLocalFile INTEGER NOT NULL, isUploaded INTEGER NOT NULL)"
+        )
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_attachments_noteUuid_uuid ON attachments (noteUuid, uuid)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_attachments_uuid ON attachments (uuid)")
+    }
+}

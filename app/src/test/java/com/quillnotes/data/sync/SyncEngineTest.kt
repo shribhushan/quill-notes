@@ -34,6 +34,11 @@ class SyncEngineTest {
         val notes = linkedMapOf<Long, NoteEntity>()
         val tombstones = linkedMapOf<String, TombstoneEntity>()
         val alarms = mutableSetOf<Long>()
+        /** note uuid -> attachment list, as the attachments table would hold it */
+        val attachments = linkedMapOf<String, MutableList<AttachmentRef>>()
+        /** attachment uuid -> bytes on this phone */
+        val files = linkedMapOf<String, ByteArray>()
+        val uploadedAttachments = mutableSetOf<String>()
         private var nextId = 1L
 
         // user actions (mirror NoteRepository: every edit stamps updatedAt and clears isSynced)
@@ -48,6 +53,18 @@ class SyncEngineTest {
             notes[n.id] = change(n).copy(isSynced = false, updatedAt = tick())
         }
         fun trash(uuid: String) = edit(uuid) { it.copy(isDeleted = true) }
+        fun attach(noteUuid: String, bytes: ByteArray): AttachmentRef {
+            val ref = AttachmentRef(uuid = UUID.randomUUID().toString(), size = bytes.size.toLong())
+            files[ref.uuid] = bytes
+            attachments.getOrPut(noteUuid) { mutableListOf() } += ref
+            edit(noteUuid) { it } // adding an image counts as editing the note
+            return ref
+        }
+        fun detach(noteUuid: String, attachmentUuid: String) {
+            attachments[noteUuid]?.removeAll { it.uuid == attachmentUuid }
+            if (attachments.values.none { list -> list.any { it.uuid == attachmentUuid } }) files.remove(attachmentUuid)
+            edit(noteUuid) { it }
+        }
         fun deleteForever(uuid: String) {
             val n = byUuid(uuid)!!
             tombstones[uuid] = TombstoneEntity(uuid, n.cloudFileId, deletedAt = tick())
@@ -58,7 +75,7 @@ class SyncEngineTest {
         fun sync(): SyncResult = runBlocking { SyncEngine(this@Phone, this@Phone) { clock }.run(cloud, key, cloud.listFiles()!!) }
 
         // SyncStore
-        override suspend fun getAllForSync() = notes.values.toList()
+        override suspend fun getAllForSync() = notes.values.map { SyncNote(it, attachments[it.uuid].orEmpty().toList()) }
         override suspend fun getNoteById(id: Long) = notes[id]
         override suspend fun getTombstones() = tombstones.values.toList()
         override suspend fun markTombstoneSynced(uuid: String, cloudFileId: String) {
@@ -74,23 +91,52 @@ class SyncEngineTest {
                 type = payload.noteType(), createdAt = payload.createdAt, updatedAt = payload.updatedAt,
                 isPinned = payload.isPinned, isCompleted = payload.isCompleted, dueDate = payload.dueDate,
                 mood = payload.mood, tags = payload.tags, color = payload.color, isSynced = true,
-                syncedUpdatedAt = payload.updatedAt, cloudFileId = cloudFileId, isDeleted = payload.isTrashed)
+                syncedUpdatedAt = payload.updatedAt, cloudFileId = cloudFileId, isDeleted = payload.isTrashed,
+                priority = payload.priority, repeatRule = payload.repeatRule, notebook = payload.notebook,
+                isArchived = payload.isArchived, isTemplate = payload.isTemplate, isLocked = payload.isLocked)
             notes[n.id] = n
+            reconcile(payload)
             return n.id
+        }
+        private fun reconcile(payload: NotePayload) {
+            val old = attachments[payload.uuid].orEmpty()
+            val keep = payload.attachments.map { it.uuid }.toSet()
+            for (gone in old.filter { it.uuid !in keep }) {
+                if (attachments.filterKeys { it != payload.uuid }.values.none { l -> l.any { it.uuid == gone.uuid } }) files.remove(gone.uuid)
+            }
+            attachments[payload.uuid] = payload.attachments.toMutableList()
+            payload.attachments.forEach { uploadedAttachments += it.uuid } // it came from the cloud
         }
         override suspend fun applyFromSync(existing: NoteEntity, payload: NotePayload, cloudFileId: String) {
             notes[existing.id] = existing.copy(title = payload.title, content = payload.content,
                 type = payload.noteType(), updatedAt = payload.updatedAt, isPinned = payload.isPinned,
                 isCompleted = payload.isCompleted, dueDate = payload.dueDate, mood = payload.mood, tags = payload.tags,
                 color = payload.color, isSynced = true, syncedUpdatedAt = payload.updatedAt,
-                cloudFileId = cloudFileId, isDeleted = payload.isTrashed)
+                cloudFileId = cloudFileId, isDeleted = payload.isTrashed,
+                priority = payload.priority, repeatRule = payload.repeatRule, notebook = payload.notebook,
+                isArchived = payload.isArchived, isTemplate = payload.isTemplate, isLocked = payload.isLocked)
+            reconcile(payload)
         }
-        override suspend fun deleteFromSync(uuid: String) { notes.values.removeAll { it.uuid == uuid } }
+        override suspend fun deleteFromSync(uuid: String) {
+            notes.values.removeAll { it.uuid == uuid }
+            attachments.remove(uuid)
+        }
+        override suspend fun attachmentsToUpload() =
+            attachments.values.flatten().filter { it.uuid in files && it.uuid !in uploadedAttachments }.distinctBy { it.uuid }
+        override suspend fun readAttachmentBytes(uuid: String) = files[uuid]
+        override suspend fun markAttachmentUploaded(uuid: String) { uploadedAttachments += uuid }
+        override suspend fun attachmentsToDownload() =
+            attachments.values.flatten().filter { it.uuid !in files }.distinctBy { it.uuid }
+        override suspend fun storeDownloadedAttachment(uuid: String, bytes: ByteArray) {
+            files[uuid] = bytes
+            uploadedAttachments += uuid
+        }
         override suspend fun addConflictCopy(loser: NotePayload) {
             val n = NoteEntity(id = nextId++, uuid = UUID.randomUUID().toString(),
                 title = SyncMerge.conflictTitle(loser.title), content = loser.content, type = loser.noteType(),
                 createdAt = loser.createdAt, updatedAt = tick(), isSynced = false)
             notes[n.id] = n
+            attachments[n.uuid] = loser.attachments.toMutableList() // shares the original's files
         }
 
         // ReminderSink
@@ -100,6 +146,7 @@ class SyncEngineTest {
 
     private class FakeCloud : CloudSyncService {
         val files = linkedMapOf<String, Pair<String, ByteArray>>() // id -> name, data
+        val uploadLog = mutableListOf<String>()                    // names in upload order
         var failUploads = false
         private var n = 0
         override suspend fun isAuthenticated() = true
@@ -108,6 +155,7 @@ class SyncEngineTest {
         override suspend fun uploadFile(fileId: String?, name: String, data: ByteArray): String? {
             if (failUploads) return null
             val id = fileId ?: "f${++n}"
+            uploadLog += name
             files[id] = name to data
             return id
         }
@@ -236,11 +284,92 @@ class SyncEngineTest {
         assertTrue(b.notes.isEmpty())
     }
 
+    @Test fun `images travel with their note and are available on the second phone`() {
+        val note = a.create("Trip")
+        val ref = a.attach(note.uuid, "jpeg-bytes".toByteArray())
+        assertTrue(a.sync() is SyncResult.Success)
+
+        val result = b.sync() as SyncResult.Success
+        assertEquals(listOf(ref.uuid), b.attachments.getValue(note.uuid).map { it.uuid })
+        assertEquals("jpeg-bytes", String(b.files.getValue(ref.uuid)))
+        assertTrue(result.downloaded >= 2) // the note and its image
+    }
+
+    @Test fun `an image is uploaded before the note that points at it`() {
+        val note = a.create("Order")
+        val ref = a.attach(note.uuid, byteArrayOf(1, 2, 3))
+        a.sync()
+        val attachmentAt = cloud.uploadLog.indexOf(attachmentFileName(ref.uuid))
+        val noteAt = cloud.uploadLog.indexOf(noteFileName(note.uuid))
+        assertTrue("image first", attachmentAt in 0 until noteAt)
+    }
+
+    @Test fun `unchanged images are not uploaded again`() {
+        val note = a.create("Once")
+        a.attach(note.uuid, byteArrayOf(9))
+        a.sync()
+        val uploads = cloud.uploadLog.size
+        a.sync()
+        assertEquals(uploads, cloud.uploadLog.size)
+    }
+
+    @Test fun `removing an image on one phone removes it on the other`() {
+        val note = a.create("Pic")
+        val ref = a.attach(note.uuid, byteArrayOf(7))
+        a.sync(); b.sync()
+        assertTrue(ref.uuid in b.files)
+
+        a.detach(note.uuid, ref.uuid)
+        a.sync(); b.sync()
+        assertTrue(b.attachments[note.uuid].orEmpty().isEmpty())
+        assertFalse(ref.uuid in b.files)
+    }
+
+    @Test fun `a note whose image has not been uploaded yet syncs and the image follows later`() {
+        val note = a.create("Late")
+        val ref = a.attach(note.uuid, byteArrayOf(4, 5))
+        // The other phone sees the note first: simulate by syncing it before the image blob exists.
+        a.uploadedAttachments += ref.uuid                // A believes it uploaded it (it did not)
+        a.sync()
+        assertTrue(b.sync() is SyncResult.Success)       // note arrives, image missing is not an error
+        assertFalse(ref.uuid in b.files)
+
+        a.uploadedAttachments -= ref.uuid                // A notices and uploads
+        a.sync(); b.sync()
+        assertTrue(ref.uuid in b.files)
+    }
+
+    @Test fun `a conflicted copy keeps the images of the version it preserves`() {
+        val n = a.create("Both"); a.sync(); b.sync()
+        val ref = a.attach(n.uuid, byteArrayOf(1))
+        b.edit(n.uuid) { it.copy(content = "text from B") }
+        a.sync(); b.sync(); a.sync(); b.sync()
+        // Whichever side lost, both phones end with the image on some note and no data loss.
+        for (phone in listOf(a, b)) {
+            assertTrue(phone.attachments.values.flatten().any { it.uuid == ref.uuid })
+            assertTrue(ref.uuid in phone.files)
+        }
+    }
+
+    @Test fun `new fields survive a round trip through the cloud`() {
+        val n = a.create("Rich")
+        a.edit(n.uuid) { it.copy(priority = 3, repeatRule = "1W", notebook = "Work", isArchived = true, isLocked = true) }
+        a.sync(); b.sync()
+        val got = b.byUuid(n.uuid)!!
+        assertEquals(3, got.priority)
+        assertEquals("1W", got.repeatRule)
+        assertEquals("Work", got.notebook)
+        assertTrue(got.isArchived && got.isLocked)
+    }
+
     @Test fun `file names round trip`() {
         val id = UUID.randomUUID().toString()
         assertEquals(id, uuidFromFileName(noteFileName(id)))
         assertNull(uuidFromFileName("note_42.qnote"))
         assertNull(uuidFromFileName(BACKUP_KEY_FILE_NAME))
         assertNotNull(uuidFromFileName("note_${id.uppercase()}.qnote"))
+        assertEquals(id, attachmentUuidFromFileName(attachmentFileName(id)))
+        assertNull(attachmentUuidFromFileName(noteFileName(id)))
+        assertNull(uuidFromFileName(attachmentFileName(id)))
     }
 }

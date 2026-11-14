@@ -12,7 +12,7 @@ interface NoteDao {
     // ── All Notes ──────────────────────────────────────────────
     @Query("""
         SELECT * FROM notes
-        WHERE isDeleted = 0
+        WHERE isDeleted = 0 AND isTemplate = 0
         ORDER BY isPinned DESC, updatedAt DESC
     """)
     fun getAllNotes(): Flow<List<NoteEntity>>
@@ -20,7 +20,7 @@ interface NoteDao {
     // ── By Type ────────────────────────────────────────────────
     @Query("""
         SELECT * FROM notes
-        WHERE type = :type AND isDeleted = 0
+        WHERE type = :type AND isDeleted = 0 AND isTemplate = 0
         ORDER BY isPinned DESC, updatedAt DESC
     """)
     fun getNotesByType(type: NoteType): Flow<List<NoteEntity>>
@@ -28,7 +28,7 @@ interface NoteDao {
     // ── Quick Notes ────────────────────────────────────────────
     @Query("""
         SELECT * FROM notes
-        WHERE type = 'NOTE' AND isDeleted = 0
+        WHERE type = 'NOTE' AND isDeleted = 0 AND isTemplate = 0
         ORDER BY isPinned DESC, updatedAt DESC
     """)
     fun getQuickNotes(): Flow<List<NoteEntity>>
@@ -36,7 +36,7 @@ interface NoteDao {
     // ── Journal Entries ────────────────────────────────────────
     @Query("""
         SELECT * FROM notes
-        WHERE type = 'JOURNAL' AND isDeleted = 0
+        WHERE type = 'JOURNAL' AND isDeleted = 0 AND isTemplate = 0
         ORDER BY createdAt DESC
     """)
     fun getJournalEntries(): Flow<List<NoteEntity>>
@@ -44,7 +44,7 @@ interface NoteDao {
     // ── Tasks ──────────────────────────────────────────────────
     @Query("""
         SELECT * FROM notes
-        WHERE type = 'TASK' AND isDeleted = 0
+        WHERE type = 'TASK' AND isDeleted = 0 AND isTemplate = 0
         ORDER BY isCompleted ASC, dueDate ASC, updatedAt DESC
     """)
     fun getTasks(): Flow<List<NoteEntity>>
@@ -80,9 +80,34 @@ interface NoteDao {
     @Query("UPDATE notes SET isPinned = :pinned, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
     suspend fun togglePin(id: Long, pinned: Boolean, timestamp: Long = System.currentTimeMillis())
 
+    /** A recurring task was completed: start its next round. */
+    @Query("UPDATE notes SET dueDate = :next, isCompleted = 0, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
+    suspend fun advanceRecurring(id: Long, next: Long, timestamp: Long = System.currentTimeMillis())
+
     // ── Task Reminders ─────────────────────────────────────────
-    @Query("SELECT * FROM notes WHERE type = 'TASK' AND isDeleted = 0 AND dueDate > :after")
+    @Query("SELECT * FROM notes WHERE type = 'TASK' AND isDeleted = 0 AND isTemplate = 0 AND isCompleted = 0 AND dueDate > :after")
     suspend fun getTasksWithDueDateAfter(after: Long): List<NoteEntity>
+
+    // ── Archive / lock / templates ─────────────────────────────
+    @Query("UPDATE notes SET isArchived = :archived, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
+    suspend fun setArchived(id: Long, archived: Boolean, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE notes SET isLocked = :locked, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
+    suspend fun setLocked(id: Long, locked: Boolean, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE notes SET isTemplate = :template, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
+    suspend fun setTemplate(id: Long, template: Boolean, timestamp: Long = System.currentTimeMillis())
+
+    @Query("SELECT * FROM notes WHERE isTemplate = 1 AND isDeleted = 0 ORDER BY updatedAt DESC")
+    fun getTemplates(): Flow<List<NoteEntity>>
+
+    /** Marks a note changed (e.g. after its attachments changed) so the next sync uploads it. */
+    @Query("UPDATE notes SET isSynced = 0, updatedAt = :timestamp WHERE uuid = :uuid")
+    suspend fun touchByUuid(uuid: String, timestamp: Long = System.currentTimeMillis())
+
+    /** Rows whose encrypted fields must be re-written (notebook rename / removal). */
+    @Query("SELECT * FROM notes WHERE notebook IS NOT NULL AND isTemplate = 0")
+    suspend fun getNotesWithNotebook(): List<NoteEntity>
 
     // ── Sync ───────────────────────────────────────────────────
     /** Every row including trashed ones: trash state is part of what syncs. */
@@ -138,6 +163,6 @@ interface NoteDao {
     suspend fun purgeAllDeletedNotes()
 
     // ── Stats ──────────────────────────────────────────────────
-    @Query("SELECT COUNT(*) FROM notes WHERE type = :type AND isDeleted = 0")
+    @Query("SELECT COUNT(*) FROM notes WHERE type = :type AND isDeleted = 0 AND isTemplate = 0")
     fun getCountByType(type: NoteType): Flow<Int>
 }

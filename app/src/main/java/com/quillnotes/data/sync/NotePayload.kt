@@ -4,6 +4,17 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** An image (or other file) attached to a note; its bytes are a separate cloud file, `att_<uuid>.qatt`. */
+@Serializable
+data class AttachmentRef(
+    val uuid: String,
+    val mime: String = "image/jpeg",
+    val width: Int = 0,
+    val height: Int = 0,
+    val size: Long = 0,
+    val createdAt: Long = 0
+)
+
 /**
  * One note as stored in the cloud (before encryption). Versioned so later releases
  * can add fields without older apps misreading the file.
@@ -26,14 +37,21 @@ data class NotePayload(
     /** In the trash (restorable). */
     val isTrashed: Boolean = false,
     /** Tombstone: permanently deleted; all other content fields are blank. */
-    val isPurged: Boolean = false
+    val isPurged: Boolean = false,
+    val priority: Int = 0,
+    val repeatRule: String? = null,
+    val notebook: String? = null,
+    val isArchived: Boolean = false,
+    val isTemplate: Boolean = false,
+    val isLocked: Boolean = false,
+    val attachments: List<AttachmentRef> = emptyList()
 ) {
     /** True when the user-visible content is identical, ignoring timestamps. */
     fun sameContentAs(other: NotePayload): Boolean =
         copy(createdAt = 0, updatedAt = 0) == other.copy(createdAt = 0, updatedAt = 0)
 
     companion object {
-        const val FORMAT_VERSION = 2
+        const val FORMAT_VERSION = 3
 
         private val json = Json {
             ignoreUnknownKeys = true
