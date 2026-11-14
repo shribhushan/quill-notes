@@ -3,6 +3,7 @@ package com.quillnotes.data.local.dao
 import androidx.room.*
 import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.local.entity.NoteType
+import com.quillnotes.data.local.entity.TombstoneEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -67,16 +68,16 @@ interface NoteDao {
     @Update
     suspend fun updateNote(note: NoteEntity)
 
-    @Query("UPDATE notes SET isDeleted = 1, updatedAt = :timestamp WHERE id = :id")
+    @Query("UPDATE notes SET isDeleted = 1, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
     suspend fun softDeleteNote(id: Long, timestamp: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun permanentlyDeleteNote(id: Long)
 
-    @Query("UPDATE notes SET isCompleted = :completed, updatedAt = :timestamp WHERE id = :id")
+    @Query("UPDATE notes SET isCompleted = :completed, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
     suspend fun toggleTaskComplete(id: Long, completed: Boolean, timestamp: Long = System.currentTimeMillis())
 
-    @Query("UPDATE notes SET isPinned = :pinned, updatedAt = :timestamp WHERE id = :id")
+    @Query("UPDATE notes SET isPinned = :pinned, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
     suspend fun togglePin(id: Long, pinned: Boolean, timestamp: Long = System.currentTimeMillis())
 
     // ── Task Reminders ─────────────────────────────────────────
@@ -84,17 +85,50 @@ interface NoteDao {
     suspend fun getTasksWithDueDateAfter(after: Long): List<NoteEntity>
 
     // ── Sync ───────────────────────────────────────────────────
-    @Query("SELECT * FROM notes WHERE isSynced = 0 AND isDeleted = 0")
-    suspend fun getUnsyncedNotes(): List<NoteEntity>
+    /** Every row including trashed ones: trash state is part of what syncs. */
+    @Query("SELECT * FROM notes")
+    suspend fun getAllForSync(): List<NoteEntity>
 
-    @Query("UPDATE notes SET isSynced = 1, cloudFileId = :cloudFileId WHERE id = :id")
-    suspend fun markAsSynced(id: Long, cloudFileId: String)
+    @Query("SELECT * FROM notes WHERE uuid = :uuid")
+    suspend fun getNoteByUuid(uuid: String): NoteEntity?
+
+    @Query("SELECT COUNT(*) FROM notes WHERE isSynced = 0")
+    suspend fun countUnsynced(): Int
+
+    /**
+     * Marks a note as synced only if it has not been edited since [updatedAt] was
+     * read, so an edit made while the upload was in flight stays flagged as pending.
+     */
+    @Query("""
+        UPDATE notes SET isSynced = 1, cloudFileId = :cloudFileId, syncedUpdatedAt = :syncedUpdatedAt
+        WHERE id = :id AND updatedAt = :updatedAt
+    """)
+    suspend fun markAsSynced(id: Long, cloudFileId: String, updatedAt: Long, syncedUpdatedAt: Long)
+
+    @Query("DELETE FROM notes WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
+
+    @Query("SELECT * FROM notes WHERE isDeleted = 1 AND updatedAt < :cutoff")
+    suspend fun getDeletedBefore(cutoff: Long): List<NoteEntity>
+
+    // ── Tombstones ─────────────────────────────────────────────
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTombstone(tombstone: TombstoneEntity)
+
+    @Query("SELECT * FROM tombstones")
+    suspend fun getAllTombstones(): List<TombstoneEntity>
+
+    @Query("UPDATE tombstones SET isSynced = 1, cloudFileId = :cloudFileId WHERE uuid = :uuid")
+    suspend fun markTombstoneSynced(uuid: String, cloudFileId: String)
+
+    @Query("DELETE FROM tombstones WHERE uuid = :uuid")
+    suspend fun deleteTombstone(uuid: String)
 
     // ── Trash ──────────────────────────────────────────────────
     @Query("SELECT * FROM notes WHERE isDeleted = 1 ORDER BY updatedAt DESC")
     fun getDeletedNotes(): Flow<List<NoteEntity>>
 
-    @Query("UPDATE notes SET isDeleted = 0, updatedAt = :timestamp WHERE id = :id")
+    @Query("UPDATE notes SET isDeleted = 0, isSynced = 0, updatedAt = :timestamp WHERE id = :id")
     suspend fun restoreNote(id: Long, timestamp: Long = System.currentTimeMillis())
 
     @Query("DELETE FROM notes WHERE isDeleted = 1 AND updatedAt < :cutoff")

@@ -115,26 +115,33 @@ class OneDriveSyncService @Inject constructor(
         try { http.newCall(request).execute() } catch (_: Exception) {}
     }
 
-    override suspend fun listFiles(): Map<String, String> = withContext(Dispatchers.IO) {
-        val token = accessToken ?: return@withContext emptyMap()
-        val url = "$GRAPH_BASE:/$FOLDER:/children?\$select=id,name&\$filter=endswith(name,'.qnote')"
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .header("Authorization", "Bearer $token")
-            .build()
+    override suspend fun listFiles(): Map<String, String>? = withContext(Dispatchers.IO) {
+        val token = accessToken ?: return@withContext null
+        var url: String? = "$GRAPH_BASE:/$FOLDER:/children?\$select=id,name&\$top=200"
         try {
-            val response = http.newCall(request).execute()
-            val body = response.body?.string() ?: return@withContext emptyMap()
-            val items = JSONObject(body).getJSONArray("value")
-            buildMap {
+            val files = linkedMapOf<String, String>()
+            while (url != null) {
+                val request = Request.Builder()
+                    .url(url)
+                    .get()
+                    .header("Authorization", "Bearer $token")
+                    .build()
+                val response = http.newCall(request).execute()
+                // A missing folder just means nothing has been backed up yet.
+                if (response.code == 404) return@withContext files
+                if (!response.isSuccessful) return@withContext null
+                val json = JSONObject(response.body?.string() ?: return@withContext null)
+                val items = json.getJSONArray("value")
                 for (i in 0 until items.length()) {
                     val item = items.getJSONObject(i)
-                    put(item.getString("id"), item.getString("name"))
+                    val name = item.getString("name")
+                    if (name.endsWith(".qnote")) files[item.getString("id")] = name
                 }
+                url = json.optString("@odata.nextLink").takeIf { it.isNotBlank() }
             }
+            files
         } catch (e: Exception) {
-            emptyMap()
+            null
         }
     }
 }

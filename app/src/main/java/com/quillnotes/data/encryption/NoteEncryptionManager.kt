@@ -96,4 +96,18 @@ class NoteEncryptionManager @Inject constructor(
         )
         return String(plaintext, Charsets.UTF_8)
     }
+
+    /**
+     * Encrypts raw bytes under the device key (Android Keystore). Used to keep the
+     * cloud backup data key at rest; it can only be decrypted on this phone.
+     */
+    fun encryptForDevice(plain: ByteArray, associatedData: String): ByteArray =
+        aead.encrypt(plain, associatedData.toByteArray(Charsets.UTF_8))
+
+    /** Returns null if the bytes do not authenticate (e.g. the Keystore key was lost). */
+    fun decryptForDevice(cipher: ByteArray, associatedData: String): ByteArray? = try {
+        aead.decrypt(cipher, associatedData.toByteArray(Charsets.UTF_8))
+    } catch (e: Exception) {
+        null
+    }
 }

@@ -90,6 +90,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteType
 import com.quillnotes.ui.components.CircleIconButton
 import com.quillnotes.ui.components.DatePickerButton
+import com.quillnotes.ui.components.rememberNotificationPermissionRequest
 import com.quillnotes.ui.components.MoodSelector
 import com.quillnotes.ui.components.QuillCheck
 import com.quillnotes.ui.components.ScreenGutter
@@ -135,6 +136,7 @@ fun NoteEditorScreen(
         viewModel.loadNote(noteId, noteType, initialContent)
     }
 
+    val requestNotifications = rememberNotificationPermissionRequest()
     val leave = {
         viewModel.flush()
         onBack()
@@ -148,7 +150,10 @@ fun NoteEditorScreen(
             onTitleChange = viewModel::onTitleChange,
             onContentChange = viewModel::onContentChange,
             onMoodChange = viewModel::onMoodChange,
-            onDueDateChange = viewModel::onDueDateChange,
+            onDueDateChange = { due ->
+                if (due != null) requestNotifications()
+                viewModel.onDueDateChange(due)
+            },
             onTagsChange = viewModel::onTagsChange,
             onColorChange = viewModel::onColorChange,
             onUndo = viewModel::undo,

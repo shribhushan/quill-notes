@@ -1,28 +1,41 @@
 package com.quillnotes.data.sync
 
 import android.content.Intent
-import com.quillnotes.data.encryption.NoteEncryptionManager
-import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.repository.NoteRepository
+import com.quillnotes.notifications.AlarmScheduler
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Orchestrates sync across providers.
- * Delegates to the correct CloudSyncService and handles
- * encrypt-before-upload / decrypt-after-download lifecycle.
+ * Two-way sync across providers.
+ *
+ * Each note is one encrypted file, `note_<uuid>.qnote`, holding a [NotePayload]. A sync
+ * downloads every cloud file and merges it with the local copy (see [SyncMerge]),
+ * then uploads whatever is still newer locally, including delete tombstones. Content is
+ * encrypted with the backup data key ([BackupKeyCrypto]) before it leaves the phone.
  */
 @Singleton
 class CloudSyncManager @Inject constructor(
     private val googleDriveService: GoogleDriveSyncService,
     private val oneDriveService: OneDriveSyncService,
-    private val encryption: NoteEncryptionManager
+    private val keyStore: BackupKeyStore,
+    private val alarmScheduler: AlarmScheduler
 ) {
+    /** Serialises manual and background syncs so two never interleave. */
+    private val syncMutex = Mutex()
+
     private fun serviceFor(provider: SyncProvider): CloudSyncService? = when (provider) {
         SyncProvider.GOOGLE_DRIVE -> googleDriveService
         SyncProvider.ONEDRIVE    -> oneDriveService
         SyncProvider.NONE        -> null
     }
+
+    private suspend fun activeService(): CloudSyncService? =
+        listOf(googleDriveService, oneDriveService).firstOrNull { it.isAuthenticated() }
 
     suspend fun isConnected(provider: SyncProvider): Boolean =
         serviceFor(provider)?.isAuthenticated() ?: false
@@ -40,68 +53,62 @@ class CloudSyncManager @Inject constructor(
     /** Completes Google sign-in using the Intent data from [getGoogleSignInIntent]'s activity result. */
     suspend fun completeGoogleSignIn(data: Intent?): Boolean = googleDriveService.completeSignIn(data)
 
-    /**
-     * Uploads every un-synced note, encrypting content before it leaves the device.
-     * Existing cloud files are updated (using the stored cloudFileId); new notes
-     * get a new remote file created.
-     */
-    suspend fun syncAll(noteRepository: NoteRepository): SyncResult {
-        // Determine active provider from the first connected service
-        val (provider, service) = listOf(
-            SyncProvider.GOOGLE_DRIVE to googleDriveService,
-            SyncProvider.ONEDRIVE    to oneDriveService
-        ).firstOrNull { (_, svc) -> svc.isAuthenticated() }
-            ?: return SyncResult.Failure("No cloud provider connected")
+    // ── Backup key ─────────────────────────────────────────────
 
-        var synced = 0
-        val unsynced: List<NoteEntity> = noteRepository.getUnsyncedNotes()
+    suspend fun backupKeyState(): BackupKeyState {
+        if (keyStore.has()) return BackupKeyState.READY
+        val files = activeService()?.listFiles() ?: return BackupKeyState.UNKNOWN
+        return if (files.containsValue(BACKUP_KEY_FILE_NAME)) BackupKeyState.NEEDS_PASSPHRASE
+        else BackupKeyState.NEEDS_SETUP
+    }
 
-        for (note in unsynced) {
-            val payload = buildPayload(note)
-            val encryptedBytes = encryption.encryptForExport(payload)
-            val fileName = "note_${note.id}.qnote"
-
-            val remoteId = service.uploadFile(
-                fileId = note.cloudFileId,
-                name   = fileName,
-                data   = encryptedBytes
-            )
-            if (remoteId != null) {
-                noteRepository.markAsSynced(note.id, remoteId)
-                synced++
-            }
+    /** First-time setup: creates the data key, stores it wrapped by [passphrase] in the cloud. Returns an error message or null. */
+    suspend fun setUpBackup(passphrase: CharArray): String? = syncMutex.withLock {
+        if (passphrase.size < MIN_PASSPHRASE_LENGTH) return "Use at least $MIN_PASSPHRASE_LENGTH characters."
+        val service = activeService() ?: return "Connect a cloud account first."
+        val files = service.listFiles() ?: return "Couldn't reach the cloud. Check your connection."
+        if (files.containsValue(BACKUP_KEY_FILE_NAME)) {
+            return "A backup already exists in this account. Enter its passphrase instead."
         }
-
-        return if (synced == unsynced.size)
-            SyncResult.Success(synced)
-        else
-            SyncResult.Failure("Partial sync: $synced of ${unsynced.size} note(s) uploaded")
+        val dataKey = BackupKeyCrypto.newDataKey()
+        val info = withContext(Dispatchers.Default) { BackupKeyCrypto.wrap(dataKey, passphrase) }
+        service.uploadFile(null, BACKUP_KEY_FILE_NAME, BackupKeyCrypto.encodeKeyInfo(info))
+            ?: return "Couldn't save the backup key to the cloud. Try again."
+        keyStore.put(dataKey)
+        null
     }
 
-    // ── Helpers ────────────────────────────────────────────────
-
-    /**
-     * Serialises a note to a simple JSON-like string for cloud storage.
-     * In production you could use a Protobuf or proper JSON serialiser.
-     */
-    private fun buildPayload(note: NoteEntity): String = buildString {
-        append("{")
-        append("\"id\":${note.id},")
-        append("\"title\":\"${note.title.escapeJson()}\",")
-        append("\"content\":\"${note.content.escapeJson()}\",")
-        append("\"type\":\"${note.type.name}\",")
-        append("\"createdAt\":${note.createdAt},")
-        append("\"updatedAt\":${note.updatedAt},")
-        append("\"mood\":\"${note.mood.orEmpty().escapeJson()}\",")
-        append("\"tags\":\"${note.tags.escapeJson()}\",")
-        append("\"dueDate\":${note.dueDate ?: "null"},")
-        append("\"isCompleted\":${note.isCompleted}")
-        append("}")
+    /** Restores access on this phone using the passphrase chosen at setup. Returns an error message or null. */
+    suspend fun unlockBackup(passphrase: CharArray): String? = syncMutex.withLock {
+        val service = activeService() ?: return "Connect a cloud account first."
+        val files = service.listFiles() ?: return "Couldn't reach the cloud. Check your connection."
+        val keyFileId = files.entries.firstOrNull { it.value == BACKUP_KEY_FILE_NAME }?.key
+            ?: return "No backup was found in this account."
+        val bytes = service.downloadFile(keyFileId) ?: return "Couldn't download the backup key. Try again."
+        val info = BackupKeyCrypto.decodeKeyInfo(bytes)
+            ?: return "The backup key file is unreadable. It may have been created by a newer version of Quill."
+        val dataKey = withContext(Dispatchers.Default) { BackupKeyCrypto.unwrap(info, passphrase) }
+            ?: return "That passphrase doesn't match this backup."
+        keyStore.put(dataKey)
+        null
     }
 
-    private fun String.escapeJson() =
-        replace("\\", "\\\\")
-            .replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
+    // ── Sync ───────────────────────────────────────────────────
+
+    suspend fun sync(repo: NoteRepository): SyncResult = syncMutex.withLock {
+        val service = activeService() ?: return SyncResult.Failure("No cloud provider connected")
+        val remoteFiles = service.listFiles()
+            ?: return SyncResult.Failure("Couldn't reach the cloud. Check your connection and try again.")
+
+        val dataKey = keyStore.get()
+        if (dataKey == null) {
+            return if (remoteFiles.containsValue(BACKUP_KEY_FILE_NAME)) SyncResult.NeedsPassphrase
+            else SyncResult.NeedsBackupSetup
+        }
+        SyncEngine(repo, alarmScheduler).run(service, dataKey, remoteFiles)
+    }
+
+    private companion object {
+        const val MIN_PASSPHRASE_LENGTH = 8
+    }
 }

@@ -195,17 +195,26 @@ class GoogleDriveSyncService @Inject constructor(
         Unit
     }
 
-    override suspend fun listFiles(): Map<String, String> = withContext(Dispatchers.IO) {
-        val service = driveService ?: return@withContext emptyMap()
+    override suspend fun listFiles(): Map<String, String>? = withContext(Dispatchers.IO) {
+        val service = driveService ?: return@withContext null
         try {
-            val result = service.files().list()
-                .setSpaces("appDataFolder")
-                .setFields("files(id, name)")
-                .setQ("name contains '.qnote'")
-                .execute()
-            result.files.associate { it.id to it.name }
+            val files = linkedMapOf<String, String>()
+            var pageToken: String? = null
+            do {
+                val result = service.files().list()
+                    .setSpaces("appDataFolder")
+                    .setFields("nextPageToken, files(id, name)")
+                    .setQ("name contains '.qnote'")
+                    .setPageSize(1000)
+                    .setPageToken(pageToken)
+                    .execute()
+                result.files.orEmpty().forEach { files[it.id] = it.name }
+                pageToken = result.nextPageToken
+            } while (pageToken != null)
+            files
         } catch (e: Exception) {
-            emptyMap()
+            Log.e(TAG, "Failed to list Drive files", e)
+            null
         }
     }
 }

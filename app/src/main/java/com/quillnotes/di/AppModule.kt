@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.quillnotes.data.encryption.NoteEncryptionManager
 import com.quillnotes.data.local.MIGRATION_1_2
+import com.quillnotes.data.local.MIGRATION_2_3
 import com.quillnotes.data.local.QuillDatabase
 import com.quillnotes.data.local.dao.NoteDao
 import dagger.Module
@@ -25,8 +26,9 @@ object AppModule {
             QuillDatabase::class.java,
             "quill_notes.db"
         )
-            .addMigrations(MIGRATION_1_2)
-            .fallbackToDestructiveMigration()
+            // No destructive fallback: a missing migration must fail loudly rather than
+            // silently wipe the user's notes.
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .build()
     }
 

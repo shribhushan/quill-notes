@@ -4,6 +4,11 @@ import com.quillnotes.data.encryption.NoteEncryptionManager
 import com.quillnotes.data.local.dao.NoteDao
 import com.quillnotes.data.local.entity.NoteEntity
 import com.quillnotes.data.local.entity.NoteType
+import com.quillnotes.data.local.entity.TombstoneEntity
+import com.quillnotes.data.sync.NotePayload
+import com.quillnotes.data.sync.SyncMerge
+import com.quillnotes.data.sync.SyncStore
+import com.quillnotes.data.sync.noteType
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -17,7 +22,7 @@ import javax.inject.Singleton
 class NoteRepository @Inject constructor(
     private val noteDao: NoteDao,
     private val encryption: NoteEncryptionManager
-) {
+) : SyncStore {
     // ── Read Operations ────────────────────────────────────────
 
     fun getAllNotes(): Flow<List<NoteEntity>> =
@@ -32,7 +37,7 @@ class NoteRepository @Inject constructor(
     fun getTasks(): Flow<List<NoteEntity>> =
         noteDao.getTasks().map { notes -> notes.map { decryptNote(it) } }
 
-    suspend fun getNoteById(id: Long): NoteEntity? =
+    override suspend fun getNoteById(id: Long): NoteEntity? =
         noteDao.getNoteById(id)?.let { decryptNote(it) }
 
     /**
@@ -63,7 +68,18 @@ class NoteRepository @Inject constructor(
     }
 
     suspend fun updateNote(note: NoteEntity) {
-        val encrypted = encryptNote(note.copy(updatedAt = System.currentTimeMillis()))
+        // Callers hold a cached copy of the row; sync may have moved its bookkeeping on
+        // since, so keep the stored sync state rather than writing the stale one back.
+        val stored = noteDao.getNoteById(note.id)
+        val encrypted = encryptNote(
+            note.copy(
+                uuid = stored?.uuid ?: note.uuid,
+                cloudFileId = stored?.cloudFileId ?: note.cloudFileId,
+                syncedUpdatedAt = stored?.syncedUpdatedAt ?: note.syncedUpdatedAt,
+                isSynced = false,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
         noteDao.updateNote(encrypted)
     }
 
@@ -89,16 +105,24 @@ class NoteRepository @Inject constructor(
     }
 
     suspend fun permanentlyDeleteNote(id: Long) {
+        noteDao.getNoteById(id)?.let { leaveTombstone(it) }
         noteDao.permanentlyDeleteNote(id)
     }
 
     suspend fun purgeOldDeletedNotes() {
         val cutoff = System.currentTimeMillis() - 30L * 24 * 60 * 60 * 1000
-        noteDao.purgeOldDeletedNotes(cutoff)
+        noteDao.getDeletedBefore(cutoff).forEach { leaveTombstone(it); noteDao.permanentlyDeleteNote(it.id) }
     }
 
     suspend fun purgeAllDeletedNotes() {
-        noteDao.purgeAllDeletedNotes()
+        noteDao.getDeletedBefore(Long.MAX_VALUE).forEach { leaveTombstone(it); noteDao.permanentlyDeleteNote(it.id) }
+    }
+
+    /** Recorded before the row is removed so the deletion reaches the cloud and other phones. */
+    private suspend fun leaveTombstone(note: NoteEntity) {
+        noteDao.insertTombstone(
+            TombstoneEntity(uuid = note.uuid, cloudFileId = note.cloudFileId, deletedAt = System.currentTimeMillis())
+        )
     }
 
     // ── Task Reminder Operations ───────────────────────────────
@@ -108,12 +132,68 @@ class NoteRepository @Inject constructor(
 
     // ── Sync Operations ────────────────────────────────────────
 
-    suspend fun getUnsyncedNotes(): List<NoteEntity> =
-        noteDao.getUnsyncedNotes().map { decryptNote(it) }
+    suspend fun countUnsynced(): Int = noteDao.countUnsynced()
 
-    suspend fun markAsSynced(id: Long, cloudFileId: String) {
-        noteDao.markAsSynced(id, cloudFileId)
+    /** Every note including trashed ones, decrypted. */
+    override suspend fun getAllForSync(): List<NoteEntity> =
+        noteDao.getAllForSync().map { decryptNote(it) }
+
+    override suspend fun getTombstones(): List<TombstoneEntity> = noteDao.getAllTombstones()
+
+    override suspend fun markTombstoneSynced(uuid: String, cloudFileId: String) =
+        noteDao.markTombstoneSynced(uuid, cloudFileId)
+
+    override suspend fun dropTombstone(uuid: String) = noteDao.deleteTombstone(uuid)
+
+    /**
+     * Records a successful upload. Ignored if the note was edited after [updatedAt] was
+     * read, leaving that newer edit flagged for the next sync.
+     */
+    override suspend fun markSynced(id: Long, cloudFileId: String, updatedAt: Long, syncedUpdatedAt: Long) {
+        noteDao.markAsSynced(id, cloudFileId, updatedAt, syncedUpdatedAt)
     }
+
+    /** Creates a local note from a cloud copy. Returns the new row id. */
+    override suspend fun insertFromSync(payload: NotePayload, cloudFileId: String): Long {
+        noteDao.getNoteByUuid(payload.uuid)?.let { return it.id }
+        val entity = payload.toEntity(cloudFileId)
+        // Content is bound to the row id, which exists only after insert (see createNote).
+        val id = noteDao.insertNote(entity.copy(title = "", content = "", tags = "", mood = null))
+        noteDao.updateNote(encryptNote(entity.copy(id = id)))
+        return id
+    }
+
+    /** Overwrites a local note with a cloud copy, keeping the cloud timestamp. */
+    override suspend fun applyFromSync(existing: NoteEntity, payload: NotePayload, cloudFileId: String) {
+        noteDao.updateNote(encryptNote(payload.toEntity(cloudFileId).copy(id = existing.id)))
+    }
+
+    override suspend fun deleteFromSync(uuid: String) = noteDao.deleteByUuid(uuid)
+
+    /** Keeps the losing side of an edit conflict as its own note, flagged to upload. */
+    override suspend fun addConflictCopy(loser: NotePayload) {
+        createNote(
+            NoteEntity(
+                title = SyncMerge.conflictTitle(loser.title),
+                content = loser.content,
+                type = loser.noteType(),
+                createdAt = loser.createdAt,
+                isPinned = false,
+                isCompleted = loser.isCompleted,
+                dueDate = loser.dueDate,
+                mood = loser.mood,
+                tags = loser.tags,
+                color = loser.color
+            )
+        )
+    }
+
+    private fun NotePayload.toEntity(cloudFileId: String) = NoteEntity(
+        uuid = uuid, title = title, content = content, type = noteType(),
+        createdAt = createdAt, updatedAt = updatedAt, isPinned = isPinned, isCompleted = isCompleted,
+        dueDate = dueDate, mood = mood, tags = tags, color = color,
+        isSynced = true, syncedUpdatedAt = updatedAt, cloudFileId = cloudFileId, isDeleted = isTrashed
+    )
 
     // ── Encryption Helpers ─────────────────────────────────────
 

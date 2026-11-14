@@ -43,6 +43,21 @@ backup that cannot be restored only make eventual data loss worse.
 passphrase and see every note, journal entry and task, including after
 deleting and editing on both phones.
 
+### Phase 1 progress
+
+| # | Status | Notes |
+|---|---|---|
+| 1.1 | Implemented | `SyncEngine` downloads and merges every cloud note, then uploads. Each note has a stable UUID (DB v3 migration). Last edit wins; if both sides changed, the older edit is kept as a "(conflicted copy)" note. |
+| 1.2 | Implemented (decision A: passphrase) | Random data key, wrapped with PBKDF2-HMAC-SHA256 from the passphrase, stored as `quill_backup_key.qnote`. Sync screen asks to create or enter the passphrase. Changing the passphrase is not built yet. |
+| 1.3 | Implemented | `SyncWorker` (3-hourly, network constraint, exponential backoff) is scheduled only while the auto-sync preference is on. |
+| 1.4 | Implemented | `NotePayload` (kotlinx.serialization, format version 2) carries pin, colour, trash state and tombstones for permanent deletes. Pin, complete, trash and restore now mark a note as changed (they did not before). |
+| 1.5 | Not started | Encrypted backup file and Markdown / plain-text export. |
+| 1.6 | Partly done | Notification permission is requested when a task gets a due date; reminders fall back to inexact alarms when exact alarms are denied. Time of day and repeat rules are not built. |
+| 1.7 | Partly done | JVM unit tests for merge rules, payload format, key wrapping and a two-phone sync simulation; run in CI. Not covered yet: repository, editor save/undo, date helpers. |
+
+Behaviour to know about: files uploaded by v1.3 (`note_<number>.qnote`) are ignored, not
+imported or deleted. Every note is re-uploaded under its new name on the first v2 sync.
+
 ## Phase 2 — Feature parity (v2.1–v2.2)
 
 | # | Item | Notes |

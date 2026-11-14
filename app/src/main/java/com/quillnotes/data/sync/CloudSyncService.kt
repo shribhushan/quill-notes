@@ -37,8 +37,9 @@ interface CloudSyncService {
     suspend fun deleteFile(fileId: String)
 
     /**
-     * Lists all Quill Notes files currently stored in the cloud folder.
-     * @return Map of remote file ID → file name.
+     * Lists all Quill Notes files currently stored in the cloud folder (all pages).
+     * @return Map of remote file ID → file name, or null if the listing failed, so a
+     *         network error is never mistaken for an empty backup.
      */
-    suspend fun listFiles(): Map<String, String>
+    suspend fun listFiles(): Map<String, String>?
 }

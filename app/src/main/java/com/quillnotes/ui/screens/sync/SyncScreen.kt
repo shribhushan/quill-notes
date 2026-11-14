@@ -49,6 +49,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,7 +79,9 @@ class SyncActions(
     val onBack: () -> Unit = {},
     val onSyncNow: () -> Unit = {},
     val onDisconnect: () -> Unit = {},
-    val onConnect: (SyncProvider) -> Unit = {}
+    val onConnect: (SyncProvider) -> Unit = {},
+    val onSubmitPassphrase: (String) -> Unit = {},
+    val onDismissPassphrase: () -> Unit = {}
 )
 
 private val SyncProvider.brand: Color
@@ -107,6 +118,8 @@ fun SyncScreen(
             onBack = onBack,
             onSyncNow = viewModel::syncNow,
             onDisconnect = viewModel::disconnect,
+            onSubmitPassphrase = viewModel::submitPassphrase,
+            onDismissPassphrase = viewModel::dismissPassphrasePrompt,
             onConnect = { provider ->
                 if (provider == SyncProvider.GOOGLE_DRIVE) {
                     googleSignInLauncher.launch(viewModel.getGoogleSignInIntent())
@@ -126,6 +139,9 @@ fun SyncContent(
     now: Long = System.currentTimeMillis()
 ) {
     val scheme = MaterialTheme.colorScheme
+    if (state.passphrasePrompt != PassphrasePrompt.NONE) {
+        PassphraseDialog(state, actions.onSubmitPassphrase, actions.onDismissPassphrase)
+    }
     Column(
         modifier
             .fillMaxSize()
@@ -366,4 +382,66 @@ private fun ProviderRow(
             }
         }
     }
+}
+
+/** Recovery-passphrase prompt: choose one on first backup, or enter it to open a backup from another phone. */
+@Composable
+private fun PassphraseDialog(
+    state: SyncUiState,
+    onSubmit: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val setup = state.passphrasePrompt == PassphrasePrompt.SETUP
+    var passphrase by remember { mutableStateOf("") }
+    var confirm by remember { mutableStateOf("") }
+    val mismatch = setup && confirm.isNotEmpty() && confirm != passphrase
+    val tooShort = setup && passphrase.isNotEmpty() && passphrase.length < 8
+    val canSubmit = !state.isSyncing && passphrase.isNotEmpty() && (!setup || (passphrase.length >= 8 && passphrase == confirm))
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (setup) "Choose a recovery passphrase" else "Enter your recovery passphrase") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    if (setup) "Your notes are encrypted before they leave this phone. You'll need this passphrase to restore them on a new phone. Quill can't reset it — if you forget it, the backup can't be opened."
+                    else "This account already has a backup. Enter the passphrase you chose when you created it to restore your notes on this phone.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedTextField(
+                    value = passphrase,
+                    onValueChange = { passphrase = it },
+                    label = { Text("Passphrase") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = tooShort,
+                    supportingText = if (tooShort) ({ Text("At least 8 characters") }) else null,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (setup) {
+                    OutlinedTextField(
+                        value = confirm,
+                        onValueChange = { confirm = it },
+                        label = { Text("Confirm passphrase") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        isError = mismatch,
+                        supportingText = if (mismatch) ({ Text("Passphrases don't match") }) else null,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                state.passphraseError?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSubmit(passphrase) }, enabled = canSubmit) {
+                Text(if (setup) "Create backup" else "Restore")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
+    )
 }

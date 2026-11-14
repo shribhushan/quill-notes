@@ -71,6 +71,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteEntity
+import com.quillnotes.ui.components.rememberNotificationPermissionRequest
 import com.quillnotes.ui.components.CircleIconButton
 import com.quillnotes.ui.components.DockClearance
 import com.quillnotes.ui.components.EmptyState
@@ -134,6 +135,7 @@ fun PlannerScreen(
     viewModel: PlannerViewModel = hiltViewModel()
 ) {
     val tasks by viewModel.tasks.collectAsState()
+    val requestNotifications = rememberNotificationPermissionRequest()
     val showCompleted by viewModel.showCompleted.collectAsState()
     val now = remember(tasks) { System.currentTimeMillis() }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -155,7 +157,10 @@ fun PlannerScreen(
             onTaskClick = onTaskClick,
             onToggle = viewModel::toggleComplete,
             onDelete = viewModel::deleteTask,
-            onQuickAdd = viewModel::quickAdd,
+            onQuickAdd = { title, dueToday ->
+                if (dueToday) requestNotifications()
+                viewModel.quickAdd(title, dueToday)
+            },
             onToggleShowCompleted = viewModel::toggleShowCompleted
         ),
         snackbarHostState = snackbarHostState

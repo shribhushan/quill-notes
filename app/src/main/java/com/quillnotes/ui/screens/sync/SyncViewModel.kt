@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.quillnotes.data.repository.NoteRepository
 import com.quillnotes.data.repository.PreferencesRepository
+import com.quillnotes.data.sync.BackupKeyState
 import com.quillnotes.data.sync.CloudSyncManager
 import com.quillnotes.data.sync.SyncProvider
 import com.quillnotes.data.sync.SyncResult
@@ -20,8 +21,19 @@ data class SyncUiState(
     val lastSyncTime: Long? = null,
     val message: String? = null,
     val error: String? = null,
-    val unsyncedCount: Int = 0
+    val unsyncedCount: Int = 0,
+    /** Set when the backup needs a recovery passphrase from the user before it can sync. */
+    val passphrasePrompt: PassphrasePrompt = PassphrasePrompt.NONE,
+    val passphraseError: String? = null
 )
+
+enum class PassphrasePrompt {
+    NONE,
+    /** First backup: choose a passphrase. */
+    SETUP,
+    /** A backup from another phone exists: enter its passphrase. */
+    UNLOCK
+}
 
 @HiltViewModel
 class SyncViewModel @Inject constructor(
@@ -38,7 +50,7 @@ class SyncViewModel @Inject constructor(
             prefsRepository.syncProvider.collect { providerKey ->
                 val provider = SyncProvider.fromKey(providerKey)
                 val connected = if (provider != SyncProvider.NONE) syncManager.isConnected(provider) else false
-                val unsynced = noteRepository.getUnsyncedNotes().size
+                val unsynced = noteRepository.countUnsynced()
                 _uiState.update {
                     it.copy(
                         provider = provider,
@@ -46,6 +58,7 @@ class SyncViewModel @Inject constructor(
                         unsyncedCount = unsynced
                     )
                 }
+                if (connected) checkBackupKey()
             }
         }
     }
@@ -68,6 +81,7 @@ class SyncViewModel @Inject constructor(
                     error = if (!success) "Google sign-in was cancelled or failed. Please try again." else null
                 )
             }
+            if (success) checkBackupKey()
         }
     }
 
@@ -85,6 +99,7 @@ class SyncViewModel @Inject constructor(
                     error = if (!success) "Failed to connect. Please try again." else null
                 )
             }
+            if (success) checkBackupKey()
         }
     }
 
@@ -103,28 +118,74 @@ class SyncViewModel @Inject constructor(
         }
     }
 
+    /** Asks for a passphrase when this phone has no backup key yet. */
+    private suspend fun checkBackupKey() {
+        val prompt = when (syncManager.backupKeyState()) {
+            BackupKeyState.NEEDS_SETUP -> PassphrasePrompt.SETUP
+            BackupKeyState.NEEDS_PASSPHRASE -> PassphrasePrompt.UNLOCK
+            BackupKeyState.READY, BackupKeyState.UNKNOWN -> PassphrasePrompt.NONE
+        }
+        _uiState.update { it.copy(passphrasePrompt = prompt, passphraseError = null) }
+    }
+
+    fun submitPassphrase(passphrase: String) {
+        val prompt = _uiState.value.passphrasePrompt
+        if (prompt == PassphrasePrompt.NONE) return
+        val chars = passphrase.toCharArray()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true, passphraseError = null) }
+            val error = when (prompt) {
+                PassphrasePrompt.SETUP -> syncManager.setUpBackup(chars)
+                else -> syncManager.unlockBackup(chars)
+            }
+            chars.fill('\u0000')
+            if (error != null) {
+                _uiState.update { it.copy(isSyncing = false, passphraseError = error) }
+            } else {
+                _uiState.update { it.copy(isSyncing = false, passphrasePrompt = PassphrasePrompt.NONE) }
+                syncNow() // restores everything on a new phone / uploads the first backup
+            }
+        }
+    }
+
+    fun dismissPassphrasePrompt() {
+        _uiState.update { it.copy(passphrasePrompt = PassphrasePrompt.NONE, passphraseError = null) }
+    }
+
     fun syncNow() {
         viewModelScope.launch {
             _uiState.update { it.copy(isSyncing = true, message = "Syncing…", error = null) }
-            val result = syncManager.syncAll(noteRepository)
-            when (result) {
+            when (val result = syncManager.sync(noteRepository)) {
                 is SyncResult.Success -> _uiState.update {
                     it.copy(
                         isSyncing = false,
                         lastSyncTime = System.currentTimeMillis(),
-                        unsyncedCount = 0,
-                        message = "Synced ${result.count} note(s) successfully"
+                        unsyncedCount = noteRepository.countUnsynced(),
+                        message = successMessage(result)
                     )
                 }
                 is SyncResult.Failure -> _uiState.update {
                     it.copy(
                         isSyncing = false,
+                        unsyncedCount = noteRepository.countUnsynced(),
                         error = result.reason,
                         message = null
                     )
                 }
+                SyncResult.NeedsBackupSetup -> _uiState.update {
+                    it.copy(isSyncing = false, message = null, passphrasePrompt = PassphrasePrompt.SETUP)
+                }
+                SyncResult.NeedsPassphrase -> _uiState.update {
+                    it.copy(isSyncing = false, message = null, passphrasePrompt = PassphrasePrompt.UNLOCK)
+                }
             }
         }
+    }
+
+    private fun successMessage(r: SyncResult.Success): String = buildString {
+        if (r.count == 0) append("Everything is up to date")
+        else append("Uploaded ${r.uploaded}, downloaded ${r.downloaded}")
+        if (r.conflicts > 0) append(" · ${r.conflicts} edited on two phones — both versions kept")
     }
 
     fun clearMessage() {

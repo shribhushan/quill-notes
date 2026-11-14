@@ -6,10 +6,11 @@ import androidx.room.TypeConverters
 import com.quillnotes.data.local.converter.Converters
 import com.quillnotes.data.local.dao.NoteDao
 import com.quillnotes.data.local.entity.NoteEntity
+import com.quillnotes.data.local.entity.TombstoneEntity
 
 @Database(
-    entities = [NoteEntity::class],
-    version = 2,
+    entities = [NoteEntity::class, TombstoneEntity::class],
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
