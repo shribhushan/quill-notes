@@ -193,12 +193,8 @@ class SyncEngine(
         }
 
         return when {
-            failures > 0 -> SyncResult.Failure(
-                "Synced with problems: $failures item(s) could not be transferred. They will be retried."
-            )
-            undecryptable > 0 -> SyncResult.Failure(
-                "$undecryptable cloud file(s) could not be decrypted with this phone's backup key."
-            )
+            failures > 0 -> SyncResult.Failure(SyncError.PARTIAL, failures)
+            undecryptable > 0 -> SyncResult.Failure(SyncError.UNDECRYPTABLE, undecryptable)
             else -> SyncResult.Success(uploaded, downloaded, conflicts)
         }
     }

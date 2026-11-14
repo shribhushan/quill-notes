@@ -58,6 +58,9 @@ import com.quillnotes.ui.components.ScreenGutter
 import com.quillnotes.ui.components.ScreenHeader
 import com.quillnotes.ui.theme.QuillTheme
 import com.quillnotes.ui.util.relativePhrase
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
+import com.quillnotes.ui.util.LocalTimeText
 
 private const val RETENTION_DAYS = 30
 private const val DAY_MS = 24 * 60 * 60 * 1000L
@@ -109,13 +112,17 @@ fun TrashContent(
     ) {
         item(key = "header") {
             ScreenHeader(
-                title = "Trash",
-                eyebrow = if (notes.isEmpty()) "Empty" else if (notes.size == 1) "1 item" else "${notes.size} items",
-                subtitle = "Items are removed for good after $RETENTION_DAYS days",
+                title = stringResource(R.string.trash_title),
+                eyebrow = when (notes.size) {
+                    0 -> stringResource(R.string.trash_eyebrow_empty)
+                    1 -> stringResource(R.string.trash_eyebrow_one)
+                    else -> stringResource(R.string.trash_eyebrow_many, notes.size)
+                },
+                subtitle = stringResource(R.string.trash_subtitle, RETENTION_DAYS),
                 leading = {
                     CircleIconButton(
                         icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         onClick = actions.onBack
                     )
                 },
@@ -123,7 +130,7 @@ fun TrashContent(
                     if (notes.isNotEmpty()) {
                         CircleIconButton(
                             icon = Icons.Rounded.DeleteSweep,
-                            contentDescription = "Empty trash",
+                            contentDescription = stringResource(R.string.trash_empty_action),
                             onClick = { confirmEmpty = true },
                             containerColor = scheme.errorContainer,
                             contentColor = scheme.onErrorContainer
@@ -138,8 +145,8 @@ fun TrashContent(
             item(key = "empty") {
                 EmptyState(
                     icon = Icons.Rounded.DeleteSweep,
-                    title = "Nothing in the trash",
-                    message = "Notes you delete wait here for $RETENTION_DAYS days, in case you change your mind."
+                    title = stringResource(R.string.trash_empty_title),
+                    message = stringResource(R.string.trash_empty_message, RETENTION_DAYS)
                 )
             }
         } else {
@@ -159,21 +166,21 @@ fun TrashContent(
         AlertDialog(
             onDismissRequest = { confirmEmpty = false },
             icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null) },
-            title = { Text("Empty trash?") },
+            title = { Text(stringResource(R.string.trash_empty_dialog_title)) },
             text = {
                 Text(
-                    if (notes.size == 1) "This item will be deleted permanently. This can't be undone."
-                    else "All ${notes.size} items will be deleted permanently. This can't be undone."
+                    if (notes.size == 1) stringResource(R.string.trash_empty_dialog_one)
+                    else stringResource(R.string.trash_empty_dialog_many, notes.size)
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     actions.onEmptyTrash()
                     confirmEmpty = false
-                }) { Text("Delete all", color = scheme.error) }
+                }) { Text(stringResource(R.string.trash_delete_all), color = scheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmEmpty = false }) { Text("Cancel") }
+                TextButton(onClick = { confirmEmpty = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -209,21 +216,21 @@ private fun TrashItem(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = note.title.ifBlank { note.content.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() } ?: "Untitled" },
+                    text = note.title.ifBlank { note.content.lineSequence().firstOrNull()?.takeIf { it.isNotBlank() } ?: stringResource(R.string.untitled) },
                     style = MaterialTheme.typography.titleMedium,
                     color = scheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Deleted ${relativePhrase(note.updatedAt, now)}",
+                    text = stringResource(R.string.trash_deleted, relativePhrase(note.updatedAt, now, LocalTimeText.current)),
                     style = MaterialTheme.typography.bodySmall,
                     color = scheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (daysLeft == 1) "1 day left" else "$daysLeft days left",
+                    text = if (daysLeft == 1) stringResource(R.string.trash_days_left_one) else stringResource(R.string.trash_days_left_many, daysLeft),
                     style = MaterialTheme.typography.labelMedium,
                     color = if (daysLeft <= 3) scheme.error else scheme.onSurfaceVariant.copy(alpha = 0.8f)
                 )
@@ -239,12 +246,12 @@ private fun TrashItem(
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Restore, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(16.dp))
-                        Text("Restore", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.trash_restore), style = MaterialTheme.typography.labelLarge)
                     }
                 }
                 CircleIconButton(
                     icon = Icons.Rounded.DeleteForever,
-                    contentDescription = "Delete forever",
+                    contentDescription = stringResource(R.string.trash_delete_forever),
                     onClick = onDeleteForever,
                     containerColor = androidx.compose.ui.graphics.Color.Transparent,
                     contentColor = scheme.error,

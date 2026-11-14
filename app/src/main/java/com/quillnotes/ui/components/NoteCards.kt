@@ -74,6 +74,7 @@ import com.quillnotes.text.Checklist
 import com.quillnotes.text.LineKind
 import com.quillnotes.text.Markdown
 import com.quillnotes.text.MarkdownPreview
+import com.quillnotes.ui.util.LocalTimeText
 
 @Composable
 fun NoteCard(
@@ -196,7 +197,7 @@ fun NoteCard(
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = relativeTime(note.updatedAt, now),
+                    text = relativeTime(note.updatedAt, now, LocalTimeText.current),
                     style = MaterialTheme.typography.labelMedium,
                     color = secondary,
                     modifier = Modifier.weight(1f)
@@ -336,7 +337,7 @@ fun SelectionBadge(selected: Boolean, modifier: Modifier = Modifier) {
         if (selected) {
             Icon(
                 Icons.Rounded.Check,
-                contentDescription = "Selected",
+                contentDescription = stringResource(R.string.a11y_selected),
                 tint = scheme.onPrimary,
                 modifier = Modifier.size(15.dp)
             )
@@ -427,13 +428,13 @@ fun JournalEntryCard(
                     ) {
                         Text(mood.emoji, style = MaterialTheme.typography.labelLarge)
                         Spacer(Modifier.width(4.dp))
-                        Text(mood.label, style = MaterialTheme.typography.labelMedium, color = contentColor)
+                        Text(stringResource(mood.labelRes), style = MaterialTheme.typography.labelMedium, color = contentColor)
                     }
                 }
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                text = entry.title.ifBlank { "Untitled entry" },
+                text = entry.title.ifBlank { stringResource(R.string.untitled_entry) },
                 style = MaterialTheme.typography.headlineSmall,
                 color = contentColor,
                 maxLines = 2,
@@ -490,7 +491,7 @@ fun QuillCheck(
         ) {
             Icon(
                 Icons.Rounded.Check,
-                contentDescription = if (checked) "Mark incomplete" else "Mark complete",
+                contentDescription = stringResource(if (checked) R.string.task_mark_incomplete else R.string.task_mark_complete),
                 tint = checkColor,
                 modifier = Modifier
                     .size(16.dp)
@@ -523,7 +524,7 @@ fun DueChip(dueDate: Long, completed: Boolean, modifier: Modifier = Modifier, no
     ) {
         Icon(Icons.Rounded.Event, contentDescription = null, tint = fg, modifier = Modifier.size(12.dp))
         Spacer(Modifier.width(4.dp))
-        Text(dueLabel(dueDate, now) + " · " + timeOfDay(dueDate), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
+        Text(dueLabel(dueDate, now, LocalTimeText.current) + " · " + timeOfDay(dueDate), style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1)
     }
 }
 

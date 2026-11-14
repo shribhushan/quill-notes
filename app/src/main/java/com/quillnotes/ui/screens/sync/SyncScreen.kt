@@ -74,6 +74,12 @@ import com.quillnotes.ui.components.heroBrush
 import com.quillnotes.ui.theme.QuillTheme
 import com.quillnotes.ui.util.relativePhrase
 import kotlinx.coroutines.delay
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
+import com.quillnotes.ui.components.PassphraseDialog
+import com.quillnotes.ui.util.UiText
+import com.quillnotes.ui.util.asString
+import com.quillnotes.ui.util.LocalTimeText
 
 class SyncActions(
     val onBack: () -> Unit = {},
@@ -140,7 +146,17 @@ fun SyncContent(
 ) {
     val scheme = MaterialTheme.colorScheme
     if (state.passphrasePrompt != PassphrasePrompt.NONE) {
-        PassphraseDialog(state, actions.onSubmitPassphrase, actions.onDismissPassphrase)
+        val setup = state.passphrasePrompt == PassphrasePrompt.SETUP
+        PassphraseDialog(
+            title = stringResource(if (setup) R.string.sync_passphrase_setup_title else R.string.sync_passphrase_unlock_title),
+            message = stringResource(if (setup) R.string.sync_passphrase_setup_message else R.string.sync_passphrase_unlock_message),
+            confirmLabel = stringResource(if (setup) R.string.sync_passphrase_create else R.string.sync_passphrase_restore),
+            creating = setup,
+            onSubmit = actions.onSubmitPassphrase,
+            onDismiss = actions.onDismissPassphrase,
+            error = state.passphraseError?.asString(),
+            busy = state.isSyncing
+        )
     }
     Column(
         modifier
@@ -153,12 +169,12 @@ fun SyncContent(
             .padding(bottom = 32.dp)
     ) {
         ScreenHeader(
-            title = "Cloud sync",
-            eyebrow = "Backup",
+            title = stringResource(R.string.sync_screen_title),
+            eyebrow = stringResource(R.string.sync_eyebrow),
             leading = {
                 CircleIconButton(
                     icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.back),
                     onClick = actions.onBack
                 )
             }
@@ -176,7 +192,7 @@ fun SyncContent(
         StatusHero(state, actions, now)
 
         SectionLabel(
-            text = if (state.isConnected) "Switch provider" else "Choose a provider",
+            text = stringResource(if (state.isConnected) R.string.sync_switch_provider else R.string.sync_choose_provider),
             padding = PaddingValues(top = 26.dp, bottom = 10.dp)
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -202,8 +218,7 @@ fun SyncContent(
             Icon(Icons.Rounded.Lock, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(12.dp))
             Text(
-                "Notes are encrypted with AES-256-GCM before they leave your phone. " +
-                    "Your cloud provider can't read them.",
+                stringResource(R.string.sync_encryption_footer),
                 style = MaterialTheme.typography.bodySmall,
                 color = scheme.onSurfaceVariant
             )
@@ -212,7 +227,7 @@ fun SyncContent(
 }
 
 @Composable
-private fun StatusBanner(error: String?, message: String?) {
+private fun StatusBanner(error: UiText?, message: UiText?) {
     val scheme = MaterialTheme.colorScheme
     val quill = QuillTheme.colors
     val isError = error != null
@@ -233,7 +248,7 @@ private fun StatusBanner(error: String?, message: String?) {
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            text = error ?: message.orEmpty(),
+            text = (error ?: message)?.asString().orEmpty(),
             style = MaterialTheme.typography.bodyMedium,
             color = if (isError) scheme.onErrorContainer else scheme.onSurface
         )
@@ -263,16 +278,16 @@ private fun StatusHero(state: SyncUiState, actions: SyncActions, now: Long) {
         }
         Spacer(Modifier.height(16.dp))
         Text(
-            text = if (state.isConnected) "Backed up to ${state.provider.displayName}" else "Not backed up yet",
+            text = if (state.isConnected) stringResource(R.string.sync_backed_up_to, state.provider.displayName) else stringResource(R.string.sync_not_backed_up),
             style = MaterialTheme.typography.headlineSmall,
             color = scheme.onSurface
         )
         Spacer(Modifier.height(4.dp))
         Text(
             text = when {
-                !state.isConnected -> "Connect a provider below to keep an encrypted copy of your notes in the cloud."
-                state.lastSyncTime != null -> "Last synced ${relativePhrase(state.lastSyncTime, now)}"
-                else -> "Connected — run your first sync"
+                !state.isConnected -> stringResource(R.string.sync_connect_hint)
+                state.lastSyncTime != null -> stringResource(R.string.sync_last_synced, relativePhrase(state.lastSyncTime, now, LocalTimeText.current))
+                else -> stringResource(R.string.sync_connected_first)
             },
             style = MaterialTheme.typography.bodyMedium,
             color = scheme.onSurface.copy(alpha = 0.72f)
@@ -281,7 +296,7 @@ private fun StatusHero(state: SyncUiState, actions: SyncActions, now: Long) {
             if (state.unsyncedCount > 0) {
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    text = if (state.unsyncedCount == 1) "1 note waiting to sync" else "${state.unsyncedCount} notes waiting to sync",
+                    text = if (state.unsyncedCount == 1) stringResource(R.string.sync_waiting_one) else stringResource(R.string.sync_waiting_many, state.unsyncedCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = scheme.onSurface,
                     modifier = Modifier
@@ -309,11 +324,11 @@ private fun StatusHero(state: SyncUiState, actions: SyncActions, now: Long) {
                             color = scheme.background
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("Syncing…")
+                        Text(stringResource(R.string.sync_syncing))
                     } else {
                         Icon(Icons.Rounded.Sync, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Sync now")
+                        Text(stringResource(R.string.sync_now_action))
                     }
                 }
                 OutlinedButton(
@@ -323,7 +338,7 @@ private fun StatusHero(state: SyncUiState, actions: SyncActions, now: Long) {
                     border = BorderStroke(1.dp, scheme.onSurface.copy(alpha = 0.25f)),
                     modifier = Modifier.height(48.dp)
                 ) {
-                    Text("Disconnect", color = scheme.onSurface)
+                    Text(stringResource(R.string.sync_disconnect_action), color = scheme.onSurface)
                 }
             }
         }
@@ -360,7 +375,7 @@ private fun ProviderRow(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(provider.displayName, style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
-                Text(provider.description, style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+                Text(stringResource(provider.descriptionRes), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
             }
             Spacer(Modifier.width(10.dp))
             when {
@@ -368,10 +383,10 @@ private fun ProviderRow(
                 connected -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = scheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Connected", style = MaterialTheme.typography.labelLarge, color = scheme.primary)
+                    Text(stringResource(R.string.sync_provider_connected), style = MaterialTheme.typography.labelLarge, color = scheme.primary)
                 }
                 else -> Text(
-                    text = "Connect",
+                    text = stringResource(R.string.sync_provider_connect),
                     style = MaterialTheme.typography.labelLarge,
                     color = scheme.background,
                     modifier = Modifier
@@ -382,66 +397,4 @@ private fun ProviderRow(
             }
         }
     }
-}
-
-/** Recovery-passphrase prompt: choose one on first backup, or enter it to open a backup from another phone. */
-@Composable
-private fun PassphraseDialog(
-    state: SyncUiState,
-    onSubmit: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    val setup = state.passphrasePrompt == PassphrasePrompt.SETUP
-    var passphrase by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf("") }
-    val mismatch = setup && confirm.isNotEmpty() && confirm != passphrase
-    val tooShort = setup && passphrase.isNotEmpty() && passphrase.length < 8
-    val canSubmit = !state.isSyncing && passphrase.isNotEmpty() && (!setup || (passphrase.length >= 8 && passphrase == confirm))
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (setup) "Choose a recovery passphrase" else "Enter your recovery passphrase") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    if (setup) "Your notes are encrypted before they leave this phone. You'll need this passphrase to restore them on a new phone. Quill can't reset it — if you forget it, the backup can't be opened."
-                    else "This account already has a backup. Enter the passphrase you chose when you created it to restore your notes on this phone.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                OutlinedTextField(
-                    value = passphrase,
-                    onValueChange = { passphrase = it },
-                    label = { Text("Passphrase") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    isError = tooShort,
-                    supportingText = if (tooShort) ({ Text("At least 8 characters") }) else null,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (setup) {
-                    OutlinedTextField(
-                        value = confirm,
-                        onValueChange = { confirm = it },
-                        label = { Text("Confirm passphrase") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        isError = mismatch,
-                        supportingText = if (mismatch) ({ Text("Passphrases don't match") }) else null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                state.passphraseError?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSubmit(passphrase) }, enabled = canSubmit) {
-                Text(if (setup) "Create backup" else "Restore")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } }
-    )
 }

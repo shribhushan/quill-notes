@@ -104,6 +104,8 @@ import com.quillnotes.ui.util.dayLabel
 import com.quillnotes.ui.util.dayOfMonth
 import com.quillnotes.ui.util.shortDate
 import com.quillnotes.ui.util.weekdayAbbrev
+import com.quillnotes.ui.util.LocalTimeText
+import androidx.annotation.StringRes
 
 data class PlannerUiState(
     val tasks: List<NoteEntity> = emptyList(),
@@ -166,12 +168,14 @@ fun PlannerScreen(
     val selectedDay by viewModel.selectedDay.collectAsState()
     val now = remember(tasks) { System.currentTimeMillis() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val movedToTrash = stringResource(R.string.planner_moved_to_trash)
+    val undo = stringResource(R.string.undo)
 
     LaunchedEffect(Unit) {
         viewModel.deleteEvents.collect { id ->
             val result = snackbarHostState.showSnackbar(
-                message = "Task moved to trash",
-                actionLabel = "Undo",
+                message = movedToTrash,
+                actionLabel = undo,
                 duration = SnackbarDuration.Short
             )
             if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(id)
@@ -228,9 +232,9 @@ fun PlannerContent(
         ) {
             item(key = "header") {
                 ScreenHeader(
-                    title = "Planner",
+                    title = stringResource(R.string.planner_title),
                     eyebrow = headerDate(state.now),
-                    subtitle = "${groups.open} to do · ${groups.completed.size} done"
+                    subtitle = stringResource(R.string.planner_subtitle, groups.open, groups.completed.size)
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -256,17 +260,17 @@ fun PlannerContent(
                 item(key = "empty") {
                     EmptyState(
                         icon = Icons.Rounded.TaskAlt,
-                        title = "Nothing on your plate",
-                        message = "Add a task above, or tap + to plan one with a due date and notes."
+                        title = stringResource(R.string.planner_empty_title),
+                        message = stringResource(R.string.planner_empty_message)
                     )
                 }
                 return@LazyColumn
             }
 
-            taskSection("overdue", "Overdue", groups.overdue, state, actions, labelColor = scheme.error)
-            taskSection("today", "Today", groups.today, state, actions)
-            taskSection("upcoming", "Upcoming", groups.upcoming, state, actions)
-            taskSection("someday", "Someday", groups.someday, state, actions)
+            taskSection("overdue", R.string.planner_section_overdue, groups.overdue, state, actions, labelColor = scheme.error)
+            taskSection("today", R.string.planner_section_today, groups.today, state, actions)
+            taskSection("upcoming", R.string.planner_section_upcoming, groups.upcoming, state, actions)
+            taskSection("someday", R.string.planner_section_someday, groups.someday, state, actions)
 
             if (groups.open == 0) {
                 item(key = "all_done") { AllDoneBanner() }
@@ -275,14 +279,14 @@ fun PlannerContent(
             if (groups.completed.isNotEmpty()) {
                 item(key = "label_completed") {
                     SectionLabel(
-                        text = "Completed",
+                        text = stringResource(R.string.planner_section_completed),
                         count = groups.completed.size,
                         padding = PaddingValues(top = 18.dp, bottom = 6.dp),
                         trailing = {
                             val rotation by animateFloatAsState(if (state.showCompleted) 180f else 0f, label = "chevron")
                             CircleIconButton(
                                 icon = Icons.Rounded.ExpandMore,
-                                contentDescription = if (state.showCompleted) "Hide completed" else "Show completed",
+                                contentDescription = stringResource(if (state.showCompleted) R.string.planner_hide_completed else R.string.planner_show_completed),
                                 onClick = actions.onToggleShowCompleted,
                                 containerColor = Color.Transparent,
                                 contentColor = scheme.onSurfaceVariant,
@@ -312,7 +316,7 @@ fun PlannerContent(
 
 private fun LazyListScope.taskSection(
     key: String,
-    title: String,
+    @StringRes titleRes: Int,
     tasks: List<NoteEntity>,
     state: PlannerUiState,
     actions: PlannerActions,
@@ -324,10 +328,10 @@ private fun LazyListScope.taskSection(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.padding(top = 10.dp).size(8.dp).clip(CircleShape).background(labelColor))
                 Spacer(Modifier.width(8.dp))
-                SectionLabel(title, count = tasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
+                SectionLabel(stringResource(titleRes), count = tasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
             }
         } else {
-            SectionLabel(title, count = tasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
+            SectionLabel(stringResource(titleRes), count = tasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
         }
     }
     taskItems(tasks, state, actions)
@@ -341,7 +345,7 @@ private fun LazyListScope.taskItems(tasks: List<NoteEntity>, state: PlannerUiSta
             QuillSwipeBox(
                 toEndAction = SwipeAction(
                     icon = Icons.Rounded.CheckCircle,
-                    label = if (task.isCompleted) "Reopen" else "Done",
+                    label = stringResource(if (task.isCompleted) R.string.swipe_reopen else R.string.swipe_done),
                     container = quill.successContainer,
                     content = if (quill.isDark) quill.success else scheme.onSurface
                 ),
@@ -368,11 +372,11 @@ private fun ProgressCard(groups: TaskGroups) {
     val done = groups.completed.size
     val progress = if (total == 0) 0f else done.toFloat() / total
     val headline = when {
-        total == 0 -> "Plan your day"
-        done == total -> "All clear"
-        progress >= 0.66f -> "Almost there"
-        progress > 0f -> "Making progress"
-        else -> "Let's get going"
+        total == 0 -> stringResource(R.string.planner_headline_plan)
+        done == total -> stringResource(R.string.planner_headline_clear)
+        progress >= 0.66f -> stringResource(R.string.planner_headline_almost)
+        progress > 0f -> stringResource(R.string.planner_headline_progress)
+        else -> stringResource(R.string.planner_headline_start)
     }
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -398,7 +402,7 @@ private fun ProgressCard(groups: TaskGroups) {
             Column(Modifier.weight(1f)) {
                 Text(headline, style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface)
                 Text(
-                    text = "$done of $total tasks complete",
+                    text = stringResource(R.string.planner_tasks_complete, done, total),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant
                 )
@@ -406,10 +410,10 @@ private fun ProgressCard(groups: TaskGroups) {
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         if (groups.overdue.isNotEmpty()) {
-                            StatPill("${groups.overdue.size} overdue", scheme.errorContainer, scheme.onErrorContainer)
+                            StatPill(stringResource(R.string.planner_stat_overdue, groups.overdue.size), scheme.errorContainer, scheme.onErrorContainer)
                         }
                         if (groups.today.isNotEmpty()) {
-                            StatPill("${groups.today.size} today", scheme.primaryContainer, scheme.onPrimaryContainer)
+                            StatPill(stringResource(R.string.planner_stat_today, groups.today.size), scheme.primaryContainer, scheme.onPrimaryContainer)
                         }
                     }
                 }
@@ -499,7 +503,7 @@ private fun QuickAddField(
                 Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.WbSunny, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Today", style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(R.string.planner_today_toggle), style = MaterialTheme.typography.labelMedium)
                 }
             }
             AnimatedVisibility(
@@ -509,7 +513,7 @@ private fun QuickAddField(
             ) {
                 CircleIconButton(
                     icon = Icons.Rounded.ArrowUpward,
-                    contentDescription = "Add task",
+                    contentDescription = stringResource(R.string.planner_add_task_action),
                     onClick = submit,
                     containerColor = scheme.onBackground,
                     contentColor = scheme.background,
@@ -537,8 +541,8 @@ private fun AllDoneBanner() {
         Icon(Icons.Rounded.TaskAlt, contentDescription = null, tint = quill.success, modifier = Modifier.size(24.dp))
         Spacer(Modifier.width(12.dp))
         Column {
-            Text("You're all caught up", style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
-            Text("Enjoy the quiet, or plan what's next.", style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            Text(stringResource(R.string.planner_all_done_title), style = MaterialTheme.typography.titleMedium, color = scheme.onSurface)
+            Text(stringResource(R.string.planner_all_done_message), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
     }
 }
@@ -560,13 +564,13 @@ private fun LazyListScope.weekSection(state: PlannerUiState, actions: PlannerAct
     item(key = "week_add") {
         QuickAddField(
             onAdd = { title, _ -> actions.onQuickAddOn(title, state.selectedDay) },
-            placeholder = stringResource(R.string.planner_add_for_day, dayLabel(state.selectedDay, state.now)),
+            placeholder = stringResource(R.string.planner_add_for_day, dayLabel(state.selectedDay, state.now, LocalTimeText.current)),
             showTodayToggle = false
         )
     }
     val dayTasks = PlannerStats.tasksByDay(state.tasks)[state.selectedDay].orEmpty()
     item(key = "week_day_label") {
-        SectionLabel(dayLabel(state.selectedDay, state.now), count = dayTasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
+        SectionLabel(dayLabel(state.selectedDay, state.now, LocalTimeText.current), count = dayTasks.size, padding = PaddingValues(top = 18.dp, bottom = 8.dp))
     }
     if (dayTasks.isEmpty()) {
         item(key = "week_empty") {

@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.quillnotes.ui.theme.QuillTheme
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
 
 /** Height the floating dock occupies, so scrolling content can clear it. */
 val DockClearance = 112.dp
@@ -248,7 +250,7 @@ fun SearchPill(
             ) {
                 CircleIconButton(
                     icon = Icons.Rounded.Close,
-                    contentDescription = "Clear search",
+                    contentDescription = stringResource(R.string.clear_search),
                     onClick = { onQueryChange("") },
                     containerColor = Color.Transparent,
                     contentColor = scheme.onSurfaceVariant,

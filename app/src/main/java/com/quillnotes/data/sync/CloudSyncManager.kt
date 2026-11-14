@@ -62,33 +62,30 @@ class CloudSyncManager @Inject constructor(
         else BackupKeyState.NEEDS_SETUP
     }
 
-    /** First-time setup: creates the data key, stores it wrapped by [passphrase] in the cloud. Returns an error message or null. */
-    suspend fun setUpBackup(passphrase: CharArray): String? = syncMutex.withLock {
-        if (passphrase.size < MIN_PASSPHRASE_LENGTH) return "Use at least $MIN_PASSPHRASE_LENGTH characters."
-        val service = activeService() ?: return "Connect a cloud account first."
-        val files = service.listFiles() ?: return "Couldn't reach the cloud. Check your connection."
-        if (files.containsValue(BACKUP_KEY_FILE_NAME)) {
-            return "A backup already exists in this account. Enter its passphrase instead."
-        }
+    /** First-time setup: creates the data key, stores it wrapped by [passphrase] in the cloud. Returns the reason it failed, or null. */
+    suspend fun setUpBackup(passphrase: CharArray): SyncError? = syncMutex.withLock {
+        if (passphrase.size < MIN_PASSPHRASE_LENGTH) return SyncError.PASSPHRASE_TOO_SHORT
+        val service = activeService() ?: return SyncError.NOT_CONNECTED
+        val files = service.listFiles() ?: return SyncError.OFFLINE
+        if (files.containsValue(BACKUP_KEY_FILE_NAME)) return SyncError.BACKUP_EXISTS
         val dataKey = BackupKeyCrypto.newDataKey()
         val info = withContext(Dispatchers.Default) { BackupKeyCrypto.wrap(dataKey, passphrase) }
         service.uploadFile(null, BACKUP_KEY_FILE_NAME, BackupKeyCrypto.encodeKeyInfo(info))
-            ?: return "Couldn't save the backup key to the cloud. Try again."
+            ?: return SyncError.KEY_UPLOAD_FAILED
         keyStore.put(dataKey)
         null
     }
 
-    /** Restores access on this phone using the passphrase chosen at setup. Returns an error message or null. */
-    suspend fun unlockBackup(passphrase: CharArray): String? = syncMutex.withLock {
-        val service = activeService() ?: return "Connect a cloud account first."
-        val files = service.listFiles() ?: return "Couldn't reach the cloud. Check your connection."
+    /** Restores access on this phone using the passphrase chosen at setup. Returns the reason it failed, or null. */
+    suspend fun unlockBackup(passphrase: CharArray): SyncError? = syncMutex.withLock {
+        val service = activeService() ?: return SyncError.NOT_CONNECTED
+        val files = service.listFiles() ?: return SyncError.OFFLINE
         val keyFileId = files.entries.firstOrNull { it.value == BACKUP_KEY_FILE_NAME }?.key
-            ?: return "No backup was found in this account."
-        val bytes = service.downloadFile(keyFileId) ?: return "Couldn't download the backup key. Try again."
-        val info = BackupKeyCrypto.decodeKeyInfo(bytes)
-            ?: return "The backup key file is unreadable. It may have been created by a newer version of Quill."
+            ?: return SyncError.NO_BACKUP_FOUND
+        val bytes = service.downloadFile(keyFileId) ?: return SyncError.KEY_DOWNLOAD_FAILED
+        val info = BackupKeyCrypto.decodeKeyInfo(bytes) ?: return SyncError.KEY_UNREADABLE
         val dataKey = withContext(Dispatchers.Default) { BackupKeyCrypto.unwrap(info, passphrase) }
-            ?: return "That passphrase doesn't match this backup."
+            ?: return SyncError.WRONG_PASSPHRASE
         keyStore.put(dataKey)
         null
     }
@@ -96,9 +93,8 @@ class CloudSyncManager @Inject constructor(
     // ── Sync ───────────────────────────────────────────────────
 
     suspend fun sync(repo: NoteRepository): SyncResult = syncMutex.withLock {
-        val service = activeService() ?: return SyncResult.Failure("No cloud provider connected")
-        val remoteFiles = service.listFiles()
-            ?: return SyncResult.Failure("Couldn't reach the cloud. Check your connection and try again.")
+        val service = activeService() ?: return SyncResult.Failure(SyncError.NOT_CONNECTED)
+        val remoteFiles = service.listFiles() ?: return SyncResult.Failure(SyncError.OFFLINE)
 
         val dataKey = keyStore.get()
         if (dataKey == null) {
@@ -106,9 +102,5 @@ class CloudSyncManager @Inject constructor(
             else SyncResult.NeedsBackupSetup
         }
         SyncEngine(repo, alarmScheduler).run(service, dataKey, remoteFiles)
-    }
-
-    private companion object {
-        const val MIN_PASSPHRASE_LENGTH = 8
     }
 }

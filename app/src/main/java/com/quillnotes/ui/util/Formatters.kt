@@ -11,6 +11,32 @@ private const val HOUR = 60 * MINUTE
 private fun format(pattern: String, timestamp: Long): String =
     SimpleDateFormat(pattern, Locale.getDefault()).format(Date(timestamp))
 
+/**
+ * The few words the date helpers need. An interface so the helpers stay plain Kotlin (unit-tested on the
+ * JVM) while the app supplies translated text from string resources ([ResourceTimeText]).
+ */
+interface TimeText {
+    fun justNow(inSentence: Boolean): String
+    fun minutesAgo(minutes: Long): String
+    fun hoursAgo(hours: Long): String
+    fun today(): String
+    fun tomorrow(): String
+    fun yesterday(inSentence: Boolean): String
+    /** "on Saturday" / "on Oct 21": a date placed inside a sentence. */
+    fun onDate(date: String): String
+}
+
+/** Default words, used by tests and previews. */
+object EnglishTimeText : TimeText {
+    override fun justNow(inSentence: Boolean) = if (inSentence) "just now" else "Just now"
+    override fun minutesAgo(minutes: Long) = "${minutes}m ago"
+    override fun hoursAgo(hours: Long) = "${hours}h ago"
+    override fun today() = "Today"
+    override fun tomorrow() = "Tomorrow"
+    override fun yesterday(inSentence: Boolean) = if (inSentence) "yesterday" else "Yesterday"
+    override fun onDate(date: String) = "on $date"
+}
+
 fun startOfDay(timestamp: Long): Long = Calendar.getInstance().apply {
     timeInMillis = timestamp
     set(Calendar.HOUR_OF_DAY, 0)
@@ -31,25 +57,25 @@ private fun sameYear(a: Long, b: Long): Boolean {
     return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR)
 }
 
-fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis()): String {
+fun relativeTime(timestamp: Long, now: Long = System.currentTimeMillis(), words: TimeText = EnglishTimeText): String {
     val diff = now - timestamp
     val today = startOfDay(now)
     return when {
-        diff < MINUTE -> "Just now"
-        diff < HOUR -> "${diff / MINUTE}m ago"
-        timestamp >= today -> "${diff / HOUR}h ago"
-        timestamp >= shiftDays(today, -1) -> "Yesterday"
+        diff < MINUTE -> words.justNow(inSentence = false)
+        diff < HOUR -> words.minutesAgo(diff / MINUTE)
+        timestamp >= today -> words.hoursAgo(diff / HOUR)
+        timestamp >= shiftDays(today, -1) -> words.yesterday(inSentence = false)
         timestamp >= shiftDays(today, -6) -> format("EEEE", timestamp)
         sameYear(timestamp, now) -> format("MMM d", timestamp)
         else -> format("MMM d, yyyy", timestamp)
     }
 }
 
-fun dayLabel(dayStart: Long, now: Long = System.currentTimeMillis()): String {
+fun dayLabel(dayStart: Long, now: Long = System.currentTimeMillis(), words: TimeText = EnglishTimeText): String {
     val today = startOfDay(now)
     return when (dayStart) {
-        today -> "Today"
-        shiftDays(today, -1) -> "Yesterday"
+        today -> words.today()
+        shiftDays(today, -1) -> words.yesterday(inSentence = false)
         else -> if (sameYear(dayStart, now)) format("EEEE, MMM d", dayStart) else format("EEE, MMM d, yyyy", dayStart)
     }
 }
@@ -73,23 +99,13 @@ fun yearOf(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis =
 
 fun dayOfMonth(timestamp: Long): Int = Calendar.getInstance().apply { timeInMillis = timestamp }.get(Calendar.DAY_OF_MONTH)
 
-fun greeting(now: Long = System.currentTimeMillis()): String {
-    val hour = Calendar.getInstance().apply { timeInMillis = now }.get(Calendar.HOUR_OF_DAY)
-    return when (hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        in 17..21 -> "Good evening"
-        else -> "Good night"
-    }
-}
-
-fun dueLabel(dueDate: Long, now: Long = System.currentTimeMillis()): String {
+fun dueLabel(dueDate: Long, now: Long = System.currentTimeMillis(), words: TimeText = EnglishTimeText): String {
     val today = startOfDay(now)
     val due = startOfDay(dueDate)
     return when {
-        due == today -> "Today"
-        due == shiftDays(today, 1) -> "Tomorrow"
-        due == shiftDays(today, -1) -> "Yesterday"
+        due == today -> words.today()
+        due == shiftDays(today, 1) -> words.tomorrow()
+        due == shiftDays(today, -1) -> words.yesterday(inSentence = false)
         due > today && due < shiftDays(today, 7) -> format("EEEE", dueDate)
         sameYear(dueDate, now) -> format("MMM d", dueDate)
         else -> format("MMM d, yyyy", dueDate)
@@ -146,16 +162,16 @@ fun readingMinutes(words: Int): Int = if (words == 0) 0 else maxOf(1, (words + 1
  * [relativeTime] phrased to sit inside a sentence: "just now", "5m ago", "yesterday",
  * "on Saturday", "on Oct 21".
  */
-fun relativePhrase(timestamp: Long, now: Long = System.currentTimeMillis()): String {
+fun relativePhrase(timestamp: Long, now: Long = System.currentTimeMillis(), words: TimeText = EnglishTimeText): String {
     val diff = now - timestamp
     val today = startOfDay(now)
     return when {
-        diff < MINUTE -> "just now"
-        diff < HOUR -> "${diff / MINUTE}m ago"
-        timestamp >= today -> "${diff / HOUR}h ago"
-        timestamp >= shiftDays(today, -1) -> "yesterday"
-        timestamp >= shiftDays(today, -6) -> "on " + format("EEEE", timestamp)
-        sameYear(timestamp, now) -> "on " + format("MMM d", timestamp)
-        else -> "on " + format("MMM d, yyyy", timestamp)
+        diff < MINUTE -> words.justNow(inSentence = true)
+        diff < HOUR -> words.minutesAgo(diff / MINUTE)
+        timestamp >= today -> words.hoursAgo(diff / HOUR)
+        timestamp >= shiftDays(today, -1) -> words.yesterday(inSentence = true)
+        timestamp >= shiftDays(today, -6) -> words.onDate(format("EEEE", timestamp))
+        sameYear(timestamp, now) -> words.onDate(format("MMM d", timestamp))
+        else -> words.onDate(format("MMM d, yyyy", timestamp))
     }
 }

@@ -23,6 +23,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.quillnotes.ui.screens.settings.SettingsViewModel
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
 
 @Composable
 fun BiometricGate(
@@ -95,9 +97,9 @@ private fun triggerBiometricPrompt(
 
     val prompt = BiometricPrompt(activity, executor, callback)
     val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Unlock Quill Notes")
-        .setSubtitle("Use your biometric credential to access your notes")
-        .setNegativeButtonText("Cancel")
+        .setTitle(context.getString(R.string.biometric_prompt_title))
+        .setSubtitle(context.getString(R.string.applock_prompt_subtitle))
+        .setNegativeButtonText(context.getString(R.string.cancel))
         .build()
 
     prompt.authenticate(info)
@@ -169,14 +171,14 @@ fun LockedScreen(onUnlock: () -> Unit) {
             }
             Spacer(Modifier.height(28.dp))
             Text(
-                "Quill is locked",
+                stringResource(R.string.locked_title),
                 style = MaterialTheme.typography.displaySmall,
                 color = scheme.onBackground,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Your notes are encrypted and waiting.\nUnlock to pick up where you left off.",
+                stringResource(R.string.locked_message),
                 style = MaterialTheme.typography.bodyMedium,
                 color = scheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
@@ -196,7 +198,7 @@ fun LockedScreen(onUnlock: () -> Unit) {
         ) {
             Icon(Icons.Rounded.Fingerprint, contentDescription = null, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
-            Text("Unlock", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.locked_note_unlock), style = MaterialTheme.typography.titleMedium)
         }
     }
 }

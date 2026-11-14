@@ -69,11 +69,13 @@ import com.quillnotes.ui.screens.search.SearchScreen
 import com.quillnotes.ui.screens.settings.SettingsScreen
 import com.quillnotes.ui.screens.sync.SyncScreen
 import com.quillnotes.ui.screens.trash.TrashScreen
+import com.quillnotes.ui.util.LocalTimeText
+import com.quillnotes.ui.util.rememberTimeText
 
 val QuillDestinations = listOf(
-    DockDestination(Screen.Home.route, "Notes", Icons.Outlined.StickyNote2, Icons.Rounded.StickyNote2),
-    DockDestination(Screen.Journal.route, "Journal", Icons.Outlined.AutoStories, Icons.Rounded.AutoStories),
-    DockDestination(Screen.Planner.route, "Planner", Icons.Outlined.CheckCircle, Icons.Rounded.CheckCircle)
+    DockDestination(Screen.Home.route, R.string.nav_notes, Icons.Outlined.StickyNote2, Icons.Rounded.StickyNote2),
+    DockDestination(Screen.Journal.route, R.string.nav_journal, Icons.Outlined.AutoStories, Icons.Rounded.AutoStories),
+    DockDestination(Screen.Planner.route, R.string.nav_planner, Icons.Outlined.CheckCircle, Icons.Rounded.CheckCircle)
 )
 
 private val tabRoutes = QuillDestinations.map { it.route }
@@ -99,7 +101,7 @@ fun QuillAppRoot(imageLoader: ImageLoader, launchRequest: LaunchRequest = Launch
     val context = LocalContext.current
     var crashReport by remember { mutableStateOf(CrashReporter.pending(context)) }
 
-    CompositionLocalProvider(LocalImageLoader provides imageLoader) {
+    CompositionLocalProvider(LocalImageLoader provides imageLoader, LocalTimeText provides rememberTimeText()) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             when (onboardingDone) {
                 null -> Unit
@@ -407,9 +409,9 @@ private fun NavigationArea(
                     openEditor(null, type, false)
                 },
                 createLabel = when (currentRoute) {
-                    Screen.Journal.route -> "New journal entry"
-                    Screen.Planner.route -> "New task"
-                    else -> "New note"
+                    Screen.Journal.route -> stringResource(R.string.fab_new_journal)
+                    Screen.Planner.route -> stringResource(R.string.fab_new_task)
+                    else -> stringResource(R.string.fab_new_note)
                 }
             )
         }

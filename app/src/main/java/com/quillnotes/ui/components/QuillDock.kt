@@ -42,10 +42,12 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.quillnotes.ui.theme.QuillTheme
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
 
 data class DockDestination(
     val route: String,
-    val label: String,
+    @StringRes val labelRes: Int,
     val icon: ImageVector,
     val selectedIcon: ImageVector
 )
@@ -155,7 +157,7 @@ private fun DockItem(
         ) {
             Icon(
                 imageVector = if (selected) destination.selectedIcon else destination.icon,
-                contentDescription = if (selected) null else destination.label,
+                contentDescription = if (selected) null else stringResource(destination.labelRes),
                 modifier = Modifier.size(22.dp)
             )
             AnimatedVisibility(
@@ -164,7 +166,7 @@ private fun DockItem(
                 exit = fadeOut() + shrinkHorizontally()
             ) {
                 Text(
-                    text = destination.label,
+                    text = stringResource(destination.labelRes),
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                     modifier = Modifier.padding(start = 8.dp)

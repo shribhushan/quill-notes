@@ -135,6 +135,7 @@ import com.quillnotes.ui.util.wordCount
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
+import com.quillnotes.ui.util.LocalTimeText
 
 class EditorActions(
     val onBack: () -> Unit = {},
@@ -621,7 +622,7 @@ private data class LinkEdit(val label: String, val url: String, val start: Int?,
 private fun messageText(message: EditorMessage, date: Long?, now: Long): String = when (message) {
     EditorMessage.SAVED_AS_TEMPLATE -> stringResource(R.string.msg_saved_template)
     EditorMessage.ATTACHMENT_FAILED -> stringResource(R.string.msg_attach_failed)
-    EditorMessage.NEXT_ROUND -> stringResource(R.string.msg_next_round, dueLabel(date ?: now, now))
+    EditorMessage.NEXT_ROUND -> stringResource(R.string.msg_next_round, dueLabel(date ?: now, now, LocalTimeText.current))
     EditorMessage.SCAN_EMPTY -> stringResource(R.string.msg_scan_empty)
     EditorMessage.EXPORT_FAILED -> stringResource(R.string.msg_export_failed)
 }
@@ -637,10 +638,10 @@ private fun eyebrowFor(state: EditorState, now: Long): String {
     val detail = when {
         state.type == NoteType.JOURNAL -> {
             val at = created ?: now
-            "${dayLabel(startOfDay(at), now)} · ${timeOfDay(at)}"
+            "${dayLabel(startOfDay(at), now, LocalTimeText.current)} · ${timeOfDay(at)}"
         }
         state.id == null -> stringResource(R.string.eyebrow_new)
-        state.savedAt != null -> stringResource(R.string.eyebrow_edited, relativePhrase(state.savedAt, now))
+        state.savedAt != null -> stringResource(R.string.eyebrow_edited, relativePhrase(state.savedAt, now, LocalTimeText.current))
         else -> stringResource(R.string.eyebrow_editing)
     }
     return "$kind · $detail"

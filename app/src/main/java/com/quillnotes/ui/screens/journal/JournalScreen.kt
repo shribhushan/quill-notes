@@ -83,6 +83,7 @@ import com.quillnotes.ui.util.dayOfMonth
 import com.quillnotes.ui.util.monthYear
 import com.quillnotes.ui.util.yearOf
 import com.quillnotes.ui.theme.QuillTheme
+import com.quillnotes.ui.util.LocalTimeText
 
 data class JournalUiState(
     val entries: List<NoteEntity> = emptyList(),
@@ -146,12 +147,14 @@ fun JournalScreen(
     val selectedDay by viewModel.selectedDay.collectAsState()
     val now = remember(entries) { System.currentTimeMillis() }
     val snackbarHostState = remember { SnackbarHostState() }
+    val movedToTrash = stringResource(R.string.journal_moved_to_trash)
+    val undo = stringResource(R.string.undo)
 
     LaunchedEffect(Unit) {
         viewModel.deleteEvents.collect { id ->
             val result = snackbarHostState.showSnackbar(
-                message = "Entry moved to trash",
-                actionLabel = "Undo",
+                message = movedToTrash,
+                actionLabel = undo,
                 duration = SnackbarDuration.Short
             )
             if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete(id)
@@ -203,9 +206,9 @@ fun JournalContent(
             item(key = "header") {
                 val count = state.entries.size
                 ScreenHeader(
-                    title = "Journal",
+                    title = stringResource(R.string.journal_title),
                     eyebrow = headerDate(state.now),
-                    subtitle = if (count == 1) "1 entry" else "$count entries"
+                    subtitle = if (count == 1) stringResource(R.string.journal_entries_one) else stringResource(R.string.journal_entries_many, count)
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -214,9 +217,9 @@ fun JournalContent(
                 item(key = "empty") {
                     EmptyState(
                         icon = Icons.Rounded.AutoStories,
-                        title = "Your journal awaits",
-                        message = "Write a few lines each day. Your moods and streaks will start to show here.",
-                        actionLabel = "Write first entry",
+                        title = stringResource(R.string.journal_empty_title),
+                        message = stringResource(R.string.journal_empty_message),
+                        actionLabel = stringResource(R.string.journal_empty_action),
                         onAction = actions.onNewEntry
                     )
                 }
@@ -252,7 +255,7 @@ fun JournalContent(
 
             groups.forEach { (day, dayEntries) ->
                 item(key = "day_$day") {
-                    SectionLabel(dayLabel(day, state.now), count = dayEntries.size, padding = PaddingValues(top = 14.dp, bottom = 10.dp))
+                    SectionLabel(dayLabel(day, state.now, LocalTimeText.current), count = dayEntries.size, padding = PaddingValues(top = 14.dp, bottom = 10.dp))
                 }
                 itemsIndexed(dayEntries, key = { _, entry -> entry.id }) { index, entry ->
                     QuillSwipeBox(
@@ -287,6 +290,8 @@ private fun MoodWeekCard(week: List<MoodDay>, streak: Int, today: Long) {
     val scheme = MaterialTheme.colorScheme
     val entriesThisWeek = week.sumOf { it.entryCount }
     val topMood = week.mapNotNull { it.mood }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+    val entriesText = if (entriesThisWeek == 1) stringResource(R.string.journal_entries_one) else stringResource(R.string.journal_entries_many, entriesThisWeek)
+    val weekSummary = if (topMood != null) stringResource(R.string.journal_week_with_mood, entriesText, stringResource(topMood.labelRes).lowercase()) else entriesText
     Box(
         Modifier
             .fillMaxWidth()
@@ -297,12 +302,9 @@ private fun MoodWeekCard(week: List<MoodDay>, streak: Int, today: Long) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("This week", style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface)
+                    Text(stringResource(R.string.journal_this_week), style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface)
                     Text(
-                        text = buildString {
-                            append(if (entriesThisWeek == 1) "1 entry" else "$entriesThisWeek entries")
-                            if (topMood != null) append(" · mostly ${topMood.label.lowercase()}")
-                        },
+                        text = weekSummary,
                         style = MaterialTheme.typography.bodyMedium,
                         color = scheme.onSurface.copy(alpha = 0.7f)
                     )
@@ -330,7 +332,7 @@ private fun StreakBadge(streak: Int) {
         Icon(Icons.Rounded.LocalFireDepartment, contentDescription = null, tint = scheme.tertiary, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(4.dp))
         Text(
-            text = if (streak == 1) "1 day" else "$streak days",
+            text = if (streak == 1) stringResource(R.string.journal_streak_one) else stringResource(R.string.journal_streak_many, streak),
             style = MaterialTheme.typography.labelLarge,
             color = scheme.onSurface
         )
@@ -393,10 +395,10 @@ private fun TodayPrompt(onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text("How was today?", style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface)
+                Text(stringResource(R.string.journal_prompt_title), style = MaterialTheme.typography.headlineSmall, color = scheme.onSurface)
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Take a minute to capture it while it's fresh.",
+                    stringResource(R.string.journal_prompt_message),
                     style = MaterialTheme.typography.bodyMedium,
                     color = scheme.onSurfaceVariant
                 )
@@ -408,7 +410,7 @@ private fun TodayPrompt(onClick: () -> Unit) {
                     .background(scheme.onBackground)
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Text("Write", style = MaterialTheme.typography.labelLarge, color = scheme.background)
+                Text(stringResource(R.string.journal_prompt_action), style = MaterialTheme.typography.labelLarge, color = scheme.background)
             }
         }
     }
@@ -440,7 +442,7 @@ private fun LazyListScope.calendarSection(state: JournalUiState, actions: Journa
         .sortedByDescending { it.createdAt }
     item(key = "calendar_label") {
         SectionLabel(
-            text = state.selectedDay?.let { dayLabel(it, state.now) } ?: monthYear(state.monthStart),
+            text = state.selectedDay?.let { dayLabel(it, state.now, LocalTimeText.current) } ?: monthYear(state.monthStart),
             count = shown.size,
             padding = PaddingValues(top = 14.dp, bottom = 10.dp)
         )

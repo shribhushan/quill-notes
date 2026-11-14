@@ -1,5 +1,6 @@
 package com.quillnotes.ui
 
+import com.quillnotes.ui.util.TimeText
 import com.quillnotes.ui.util.dayLabel
 import com.quillnotes.ui.util.hourOf
 import com.quillnotes.ui.util.minuteOf
@@ -10,6 +11,7 @@ import com.quillnotes.ui.util.localToPickerDate
 import com.quillnotes.ui.util.parseTags
 import com.quillnotes.ui.util.pickerDateToLocal
 import com.quillnotes.ui.util.readingMinutes
+import com.quillnotes.ui.util.relativePhrase
 import com.quillnotes.ui.util.relativeTime
 import com.quillnotes.ui.util.shiftDays
 import com.quillnotes.ui.util.startOfDay
@@ -114,5 +116,51 @@ class FormattersTest {
         assertEquals(1, readingMinutes(220))
         assertEquals(1, readingMinutes(240)) // up to ~20 words over a minute is tolerated
         assertEquals(2, readingMinutes(241))
+    }
+
+    /** Marks every word so a test can see which ones the helpers asked for. */
+    private object Marked : TimeText {
+        override fun justNow(inSentence: Boolean) = "[now:$inSentence]"
+        override fun minutesAgo(minutes: Long) = "[min:$minutes]"
+        override fun hoursAgo(hours: Long) = "[hr:$hours]"
+        override fun today() = "[today]"
+        override fun tomorrow() = "[tomorrow]"
+        override fun yesterday(inSentence: Boolean) = "[yday:$inSentence]"
+        override fun onDate(date: String) = "[on:$date]"
+    }
+
+    @Test fun `relative time takes its words from the supplied TimeText`() {
+        val now = at(2026, 11, 14, 15, 0)
+        assertEquals("[now:false]", relativeTime(now - 20_000, now, Marked))
+        assertEquals("[min:5]", relativeTime(now - 5 * 60_000, now, Marked))
+        assertEquals("[hr:2]", relativeTime(now - 2 * 3_600_000, now, Marked))
+        assertEquals("[yday:false]", relativeTime(at(2026, 11, 13, 9, 0), now, Marked))
+    }
+
+    @Test fun `sentence phrases use the in-sentence forms and the on-date wrapper`() {
+        val now = at(2026, 11, 14, 15, 0)
+        assertEquals("[now:true]", relativePhrase(now - 20_000, now, Marked))
+        assertEquals("[yday:true]", relativePhrase(at(2026, 11, 13, 9, 0), now, Marked))
+        assertEquals("[on:Monday]", relativePhrase(at(2026, 11, 9, 9, 0), now, Marked)) // 5 days back, same week window
+        assertEquals("[on:Oct 21]", relativePhrase(at(2026, 10, 21, 9, 0), now, Marked))
+        assertEquals("[on:Oct 21, 2025]", relativePhrase(at(2025, 10, 21, 9, 0), now, Marked))
+    }
+
+    @Test fun `day and due labels use the supplied words for today, tomorrow and yesterday`() {
+        val now = at(2026, 11, 14, 15, 0)
+        val today = startOfDay(now)
+        assertEquals("[today]", dayLabel(today, now, Marked))
+        assertEquals("[yday:false]", dayLabel(shiftDays(today, -1), now, Marked))
+        assertEquals("[today]", dueLabel(at(2026, 11, 14, 9, 0), now, Marked))
+        assertEquals("[tomorrow]", dueLabel(at(2026, 11, 15, 9, 0), now, Marked))
+        assertEquals("[yday:false]", dueLabel(at(2026, 11, 13, 9, 0), now, Marked))
+    }
+
+    @Test fun `english defaults keep the existing wording`() {
+        val now = at(2026, 11, 14, 15, 0)
+        assertEquals("Just now", relativeTime(now - 1_000, now))
+        assertEquals("5m ago", relativeTime(now - 5 * 60_000, now))
+        assertEquals("just now", relativePhrase(now - 1_000, now))
+        assertEquals("on Oct 21", relativePhrase(at(2026, 10, 21, 9, 0), now))
     }
 }

@@ -532,16 +532,16 @@ private fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
             .padding(horizontal = ScreenGutter),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        ThemeOptionTile("System", selected == ThemeKeys.SYSTEM, { onSelect(ThemeKeys.SYSTEM) }) {
+        ThemeOptionTile(stringResource(R.string.theme_system), selected == ThemeKeys.SYSTEM, { onSelect(ThemeKeys.SYSTEM) }) {
             Row(Modifier.fillMaxSize()) {
                 Box(Modifier.weight(1f).fillMaxHeight()) { MiniMock(paper, compact = true) }
                 Box(Modifier.weight(1f).fillMaxHeight()) { MiniMock(midnight, compact = true) }
             }
         }
-        ThemeOptionTile("Paper", selected == ThemeKeys.PAPER, { onSelect(ThemeKeys.PAPER) }) { MiniMock(paper) }
-        ThemeOptionTile("Midnight", selected == ThemeKeys.MIDNIGHT, { onSelect(ThemeKeys.MIDNIGHT) }) { MiniMock(midnight) }
-        ThemeOptionTile("Aurora", selected == ThemeKeys.AURORA, { onSelect(ThemeKeys.AURORA) }) { MiniMock(aurora) }
-        ThemeOptionTile("Wallpaper", selected == ThemeKeys.DYNAMIC, { onSelect(ThemeKeys.DYNAMIC) }) { MiniMock(dynamicSwatch) }
+        ThemeOptionTile(stringResource(R.string.theme_paper), selected == ThemeKeys.PAPER, { onSelect(ThemeKeys.PAPER) }) { MiniMock(paper) }
+        ThemeOptionTile(stringResource(R.string.theme_midnight), selected == ThemeKeys.MIDNIGHT, { onSelect(ThemeKeys.MIDNIGHT) }) { MiniMock(midnight) }
+        ThemeOptionTile(stringResource(R.string.theme_aurora), selected == ThemeKeys.AURORA, { onSelect(ThemeKeys.AURORA) }) { MiniMock(aurora) }
+        ThemeOptionTile(stringResource(R.string.theme_wallpaper), selected == ThemeKeys.DYNAMIC, { onSelect(ThemeKeys.DYNAMIC) }) { MiniMock(dynamicSwatch) }
     }
 }
 
@@ -562,7 +562,7 @@ private fun ThemeOptionTile(
                 .size(width = 92.dp, height = 124.dp)
                 .clip(outer)
                 .border(ringWidth, ring, outer)
-                .clickable(role = Role.RadioButton, onClickLabel = "Use $label theme", onClick = onClick)
+                .clickable(role = Role.RadioButton, onClickLabel = stringResource(R.string.theme_use, label), onClick = onClick)
                 .padding(5.dp)
                 .clip(RoundedCornerShape(17.dp)),
             content = preview
@@ -644,9 +644,9 @@ private fun FontSizeControl(selected: String, onSelect: (String) -> Unit) {
     ) {
         Row(Modifier.padding(5.dp)) {
             listOf(
-                Triple("small", "Small", 15.sp),
-                Triple("medium", "Default", 19.sp),
-                Triple("large", "Large", 24.sp)
+                Triple("small", R.string.text_size_small, 15.sp),
+                Triple("medium", R.string.text_size_default, 19.sp),
+                Triple("large", R.string.text_size_large, 24.sp)
             ).forEach { (key, label, sample) ->
                 val isSelected = key == selected
                 val bg by animateColorAsState(if (isSelected) scheme.onBackground else Color.Transparent, label = "fontSeg")
@@ -663,7 +663,7 @@ private fun FontSizeControl(selected: String, onSelect: (String) -> Unit) {
                 ) {
                     Text("Aa", fontFamily = QuillSerif, fontSize = sample, color = fg)
                     Spacer(Modifier.width(6.dp))
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = fg)
+                    Text(stringResource(label), style = MaterialTheme.typography.labelMedium, color = fg)
                 }
             }
         }

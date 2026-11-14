@@ -60,6 +60,7 @@ import com.quillnotes.ui.util.minuteOf
 import com.quillnotes.ui.util.pickerDateToLocal
 import com.quillnotes.ui.util.startOfDay
 import com.quillnotes.ui.util.timeOfDay
+import com.quillnotes.ui.util.LocalTimeText
 
 /** Pill that shows the due date (or a prompt) and opens a date picker. The time of day is kept. */
 @Composable
@@ -94,7 +95,7 @@ fun DatePickerButton(
             Icon(Icons.Rounded.Event, contentDescription = null, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(
-                text = selectedDate?.let { stringResource(R.string.due_prefix, dueLabel(it, now)) } ?: stringResource(R.string.due_add),
+                text = selectedDate?.let { stringResource(R.string.due_prefix, dueLabel(it, now, LocalTimeText.current)) } ?: stringResource(R.string.due_add),
                 style = MaterialTheme.typography.labelLarge
             )
             if (selectedDate != null) {

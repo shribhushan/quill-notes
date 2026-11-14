@@ -6,6 +6,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarData
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
 
 @Composable
 fun QuillSnackbar(data: SnackbarData) {
@@ -24,7 +26,7 @@ fun trashSwipeAction(): SwipeAction {
     val scheme = MaterialTheme.colorScheme
     return SwipeAction(
         icon = Icons.Rounded.DeleteOutline,
-        label = "Trash",
+        label = stringResource(R.string.swipe_trash),
         container = scheme.errorContainer,
         content = scheme.onErrorContainer
     )

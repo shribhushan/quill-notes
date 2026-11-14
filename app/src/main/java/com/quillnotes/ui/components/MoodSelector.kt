@@ -33,20 +33,23 @@ import com.quillnotes.ui.theme.MoodCalm
 import com.quillnotes.ui.theme.MoodHappy
 import com.quillnotes.ui.theme.MoodNeutral
 import com.quillnotes.ui.theme.MoodSad
+import androidx.compose.ui.res.stringResource
+import com.quillnotes.R
+import androidx.annotation.StringRes
 
 data class MoodOption(
-    val label: String,
+    @StringRes val labelRes: Int,
     val emoji: String,
     val key: String,
     val color: Color
 )
 
 val moods = listOf(
-    MoodOption("Happy", "😊", "happy", MoodHappy),
-    MoodOption("Calm", "🧘", "calm", MoodCalm),
-    MoodOption("Neutral", "😐", "neutral", MoodNeutral),
-    MoodOption("Anxious", "😟", "anxious", MoodAnxious),
-    MoodOption("Sad", "😔", "sad", MoodSad)
+    MoodOption(R.string.mood_happy, "😊", "happy", MoodHappy),
+    MoodOption(R.string.mood_calm, "🧘", "calm", MoodCalm),
+    MoodOption(R.string.mood_neutral, "😐", "neutral", MoodNeutral),
+    MoodOption(R.string.mood_anxious, "😟", "anxious", MoodAnxious),
+    MoodOption(R.string.mood_sad, "😔", "sad", MoodSad)
 )
 
 fun moodFor(key: String?): MoodOption? = moods.find { it.key == key }
@@ -57,7 +60,7 @@ fun MoodSelector(
     selectedMood: String?,
     onMoodSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    title: String? = "How are you feeling?"
+    title: String? = stringResource(R.string.mood_prompt)
 ) {
     val scheme = MaterialTheme.colorScheme
     Column(modifier) {
@@ -125,7 +128,7 @@ private fun MoodBubble(mood: MoodOption, selected: Boolean, dimmed: Boolean, onC
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            text = mood.label,
+            text = stringResource(mood.labelRes),
             style = MaterialTheme.typography.labelMedium,
             color = if (selected) scheme.onSurface else scheme.onSurfaceVariant
         )

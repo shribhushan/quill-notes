@@ -75,6 +75,7 @@ import com.quillnotes.ui.components.ScreenGutter
 import com.quillnotes.ui.components.bleed
 import com.quillnotes.ui.theme.QuillTheme
 import com.quillnotes.ui.util.relativeTime
+import com.quillnotes.ui.util.LocalTimeText
 
 class SearchActions(
     val onBack: () -> Unit = {},
@@ -316,7 +317,7 @@ private fun SearchResultRow(hit: SearchHit, now: Long, onClick: () -> Unit) {
                 )
             }
             Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(relativeTime(note.updatedAt, now), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
+                Text(relativeTime(note.updatedAt, now, LocalTimeText.current), style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant)
                 note.notebook?.takeIf { it.isNotBlank() }?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
