@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.quillnotes.data.local.entity.NoteEntity
+import com.quillnotes.ui.components.CircleIconButton
 import com.quillnotes.ui.components.DockClearance
 import com.quillnotes.ui.components.EmptyState
 import com.quillnotes.ui.components.JournalEntryCard
@@ -81,6 +82,7 @@ import com.quillnotes.ui.components.moods
 import com.quillnotes.ui.util.dayOfMonth
 import com.quillnotes.ui.util.monthYear
 import com.quillnotes.ui.util.yearOf
+import com.quillnotes.ui.theme.QuillTheme
 
 data class JournalUiState(
     val entries: List<NoteEntity> = emptyList(),

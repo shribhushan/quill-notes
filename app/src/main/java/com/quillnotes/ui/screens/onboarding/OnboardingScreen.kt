@@ -1,5 +1,6 @@
 package com.quillnotes.ui.screens.onboarding
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,7 @@ private val pages = listOf(
 )
 
 /** Three short pages on first launch: what Quill is, why it is private, and how backup works. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun OnboardingScreen(onFinish: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
