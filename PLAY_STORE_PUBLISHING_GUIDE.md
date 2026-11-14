@@ -48,6 +48,10 @@ Copy the **SHA1** value (e.g., `AA:BB:CC:...`) and paste it into the Google Clou
    - Add your email as a test user during development.
 
 ### 2.2 Microsoft OneDrive Integration
+
+> **Not offered in 2.3.** `OneDriveSyncService.signIn()` is still a stub that always returns `false`, so the Sync
+> screen does not list OneDrive. Skip this part unless you are finishing that integration (wire MSAL into
+> `signIn()`, then set `isAvailable = true` for `SyncProvider.ONEDRIVE`).
 1. Go to **portal.azure.com** → Sign in with a Microsoft account.
 2. Navigate to **Azure Active Directory → App registrations → New registration**.
 3. Name: `QuillNotes`, Supported account types: **Accounts in any organizational directory and personal Microsoft accounts**.
@@ -78,34 +82,24 @@ keytool -genkey -v \
 ```
 Fill in the prompts. **Back up this keystore file and remember the passwords — losing it means you can never update your app on the Play Store.**
 
-### 3.2 Configure Signing in `app/build.gradle.kts`
-Add the following block **inside** the `android { }` block (before `buildTypes`):
+### 3.2 Configure signing (already wired up)
+`app/build.gradle.kts` reads the release credentials from **`keystore.properties`** in the project root, or from
+environment variables. Neither is committed (`.gitignore` excludes `keystore.properties`, `*.jks` and
+`*.keystore`). If neither is present the release build is simply unsigned, so CI and local builds never fail on it.
 
-```kotlin
-signingConfigs {
-    create("release") {
-        storeFile     = file("/path/to/quillnotes-release.keystore")
-        storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "your_store_password"
-        keyAlias      = "quillnotes"
-        keyPassword   = System.getenv("KEY_PASSWORD") ?: "your_key_password"
-    }
-}
+Create `keystore.properties` next to `settings.gradle.kts`:
+```properties
+storeFile=/absolute/path/to/quillnotes-release.keystore
+storePassword=your_store_password
+keyAlias=quillnotes
+keyPassword=your_key_password
 ```
+or export the same values as `QUILL_KEYSTORE_FILE`, `QUILL_KEYSTORE_PASSWORD`, `QUILL_KEY_ALIAS` and
+`QUILL_KEY_PASSWORD` (handy for a CI secret). Do not paste passwords into any tracked file.
 
-Then update the `release` build type to use it:
-```kotlin
-buildTypes {
-    release {
-        isMinifyEnabled   = true
-        isShrinkResources = true
-        signingConfig     = signingConfigs.getByName("release")
-        proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
-            "proguard-rules.pro"
-        )
-    }
-}
-```
+> With **Play App Signing** (recommended) the key above is only your *upload* key; Google holds the real app
+> signing key. Register the SHA-1 of whichever key signs the build you test with in the Google Cloud OAuth
+> client, otherwise Google Drive sign-in fails with a developer error (see part 2.1).
 
 ### 3.3 Build the Release AAB (recommended for Play Store)
 ```bash
@@ -138,40 +132,19 @@ Navigate to **Store presence → Main store listing** and fill in:
 | Field | Value |
 |---|---|
 | App name | Quill Notes |
-| Short description (≤80 chars) | Minimalist encrypted notes, journal & planner |
-| Full description (≤4000 chars) | (See template below) |
+| Short description (≤80 chars) | `store/listing/en-US/short_description.txt` |
+| Full description (≤4000 chars) | `store/listing/en-US/full_description.txt` |
 | App icon | 512×512 PNG, ≤1024 KB |
 | Feature graphic | 1024×500 PNG or JPG |
-| Screenshots | At least 2 phone screenshots (1080×1920 recommended) |
+| Screenshots | At least 2 phone screenshots (1080×1920 recommended; the longer side must be ≤ 2× the shorter) |
 | Category | Productivity |
-| Tags | notes, journal, planner, encrypted, minimalist |
+| Tags | notes, journal, planner, encrypted, to-do |
 | Email | your-support@email.com |
-| Privacy policy URL | Required — host a privacy policy page |
+| Privacy policy URL | Required — host [`docs/PRIVACY.md`](docs/PRIVACY.md) (fill in the two placeholders first) |
 
-**Full description template:**
-```
-Quill Notes is a minimalist, privacy-first note-taking app with three modes:
-
-📝 Quick Notes — Capture thoughts instantly with a clean, distraction-free editor.
-📖 Journal — Log daily entries with mood tracking and beautiful date grouping.
-📅 Planner — Manage tasks with due dates and one-tap completion.
-
-🔒 COMPLETE ENCRYPTION
-Every note is encrypted with AES-256-GCM before being written to storage.
-Your data is unreadable to anyone — including us.
-
-☁️ OPTIONAL CLOUD SYNC
-Sync your encrypted notes to Google Drive or Microsoft OneDrive.
-Files are encrypted before they ever leave your device.
-
-🎨 THREE THEMES
-Choose Light, Dark, or Colorful — or follow your system preference.
-
-🔐 BIOMETRIC LOCK
-Optionally require fingerprint or face authentication to open the app.
-
-No ads. No account required. Your notes stay yours.
-```
+**Listing text:** ready-made, length-checked text in English, Hindi and Marathi is in
+[`store/listing/`](store/listing) (title, short and full description, release notes). Paste it from there rather
+than from an older copy, and see [`store/README.md`](store/README.md) for the graphics you still need to supply.
 
 ### 4.3 App Content & Compliance
 
@@ -186,7 +159,7 @@ You must host a privacy policy at a public URL. It must cover:
 
 | Question | Answer |
 |---|---|
-| Does your app collect or share user data? | No |
+| Does your app collect or share user data? | No: notes never leave the phone unless the user turns on backup, and backups are encrypted on the phone with a passphrase only the user knows, so neither you nor Google can read them (Play treats data that is end-to-end encrypted this way as not collected). **Confirm the wording against the current form before submitting.** |
 | Does your app use encryption? | Yes |
 | Is encryption solely for DRM? | No |
 | Does your app collect location? | No |
@@ -205,13 +178,8 @@ You must host a privacy policy at a public URL. It must cover:
 ### 4.4 Upload the AAB
 1. Navigate to **Release → Production → Create new release**.
 2. Click **Upload** and select `app-release.aab`.
-3. Enter **Release name** (e.g., `1.0.0 (1)`) and **Release notes**:
-   ```
-   🎉 Initial release of Quill Notes
-   - Encrypted quick notes, journal, and planner
-   - Google Drive and OneDrive sync
-   - Light, Dark, and Colorful themes
-   ```
+3. Enter **Release name** (e.g., `2.3.0 (4)`, matching `versionName` and `versionCode` in `app/build.gradle.kts`)
+   and paste the **Release notes** from `store/listing/<locale>/release_notes.txt`.
 4. Click **Next → Save**.
 
 ### 4.5 Pricing & Distribution
@@ -246,7 +214,7 @@ You must host a privacy policy at a public URL. It must cover:
 
 ## Part 6 — Post-Release Checklist
 
-- [ ] Set up **Firebase Crashlytics** for crash reporting
+- [ ] Watch crashes and ANRs in **Android Vitals** (Play Console). The app deliberately has no analytics or crash-reporting SDK; its own crash report is local and shared only if the user chooses to
 - [ ] Configure **Play App Signing** (Google manages your signing key after upload)
 - [ ] Set up **in-app review** prompts using `com.google.android.play:review`
 - [ ] Monitor **Android Vitals** weekly — target <1% crash rate
@@ -265,12 +233,12 @@ Quill Notes is designed to comply with all current Play Store policies:
 | Target API level (API 35) | ✅ Required from Aug 2024 |
 | No cleartext HTTP traffic | ✅ network_security_config.xml enforces HTTPS |
 | Data Safety form completed | ✅ No user data collected server-side |
-| Permissions justified | ✅ INTERNET (sync), BIOMETRIC (lock), POST_NOTIFICATIONS (sync status) |
+| Permissions justified | ✅ INTERNET (backup), BIOMETRIC (lock), POST_NOTIFICATIONS and SCHEDULE_EXACT_ALARM (task reminders at the time the user picks; falls back to inexact alarms if declined), RECEIVE_BOOT_COMPLETED (re-arm reminders). Complete the Play Console permission declaration for exact alarms |
 | No deceptive behaviour | ✅ No ads, no hidden subscriptions |
-| Privacy policy present | ⚠️ You must host one before submission |
+| Privacy policy present | ⚠️ `docs/PRIVACY.md` is written; fill in the developer name and support email, host it, and add the URL |
 | allowBackup=false | ✅ Protects encrypted key material |
 | Encryption export compliance | ⚠️ Declare AES-256 use in the Export compliance questionnaire |
 
 ---
 
-*Last updated: March 2026 — cross-check with developer.android.com and play.google.com/console/about/guides for any policy changes.*
+*Last updated: November 2026 — cross-check with developer.android.com and play.google.com/console/about/guides for any policy changes.*

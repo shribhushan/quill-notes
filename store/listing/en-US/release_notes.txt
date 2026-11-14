@@ -1,0 +1,7 @@
+2.3.0
+• Markdown formatting, checklists, photos, notebooks, archive, templates and [[note links]]
+• One search across notes, journal and tasks
+• Journal calendar, mood trends and daily reminder; planner week view, priorities and repeating tasks
+• Voice dictation and text scanning
+• Encrypted Google Drive backup you can restore on a new phone, plus Markdown and encrypted-file export
+• Widgets, shortcuts, tablet layout, and Hindi and Marathi translations

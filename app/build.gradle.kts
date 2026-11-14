@@ -6,6 +6,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Release signing credentials come from keystore.properties (git-ignored) or QUILL_* environment
+// variables; they are never written in this file. Without them the release build is simply unsigned.
+val keystoreProperties = java.util.Properties().apply {
+    val file = rootProject.file("keystore.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
+fun signingValue(propertyKey: String, envKey: String): String? =
+    keystoreProperties.getProperty(propertyKey) ?: System.getenv(envKey)
+
 android {
     namespace = "com.quillnotes"
     compileSdk = 35
@@ -14,8 +24,8 @@ android {
         applicationId = "com.quillnotes"
         minSdk = 31 // Android 12 — supports last 3 major versions (12, 13, 14/15)
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.3.0"
+        versionCode = 4
+        versionName = "2.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -42,6 +52,17 @@ android {
             keyAlias = "quillnotes-ci-debug"
             keyPassword = "android"
         }
+
+        // Play Store signing key: see PLAY_STORE_PUBLISHING_GUIDE.md, part 3.
+        val releaseStoreFile = signingValue("storeFile", "QUILL_KEYSTORE_FILE")
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile)
+                storePassword = signingValue("storePassword", "QUILL_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "QUILL_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "QUILL_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -52,6 +73,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
         debug {
             isDebuggable = true

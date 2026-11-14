@@ -9,7 +9,11 @@
 
     <!-- Biometric authentication -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+    <!-- Deprecated since API 28 and unnecessary at minSdk 31; a library may re-add it -->
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
+
+    <!-- Merged in by a Play Services dependency; Quill never uses NFC -->
+    <uses-permission android:name="android.permission.NFC" tools:node="remove" />
 
     <!-- Notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

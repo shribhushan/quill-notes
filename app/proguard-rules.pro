@@ -40,3 +40,16 @@
 
 # Tink
 -keep class com.google.crypto.tink.** { *; }
+
+# kotlinx.serialization: payload serializers are looked up through the companion at runtime
+-keepclassmembers class com.quillnotes.data.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.quillnotes.data.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# Glance widgets and their tap callbacks are instantiated by name by the platform
+-keep class * extends androidx.glance.appwidget.GlanceAppWidget { <init>(); }
+-keep class * extends androidx.glance.appwidget.GlanceAppWidgetReceiver { <init>(); }
+-keep class * implements androidx.glance.appwidget.action.ActionCallback { <init>(); }

@@ -11,13 +11,16 @@ enum class SyncProvider(
     val key: String,
     val displayName: String,
     @StringRes val descriptionRes: Int,
-    val icon: ImageVector
+    val icon: ImageVector,
+    /** False while the sign-in for this provider is not finished; the Sync screen only lists available ones. */
+    val isAvailable: Boolean = true
 ) {
     NONE(
         key = "none",
         displayName = "None",
         descriptionRes = R.string.sync_provider_none_desc,
-        icon = Icons.Outlined.Cloud
+        icon = Icons.Outlined.Cloud,
+        isAvailable = false
     ),
     GOOGLE_DRIVE(
         key = "google_drive",
@@ -29,7 +32,9 @@ enum class SyncProvider(
         key = "onedrive",
         displayName = "Microsoft OneDrive",
         descriptionRes = R.string.sync_provider_onedrive_desc,
-        icon = Icons.Outlined.CloudQueue
+        icon = Icons.Outlined.CloudQueue,
+        // MSAL sign-in is not wired up (OneDriveSyncService.signIn always returns false), so do not offer it.
+        isAvailable = false
     );
 
     companion object {

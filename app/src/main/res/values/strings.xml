@@ -287,7 +287,7 @@
     <string name="settings_journal_reminder_time">Reminder time</string>
     <string name="settings_sync_storage">Sync &amp; storage</string>
     <string name="settings_cloud_sync_title">Cloud sync</string>
-    <string name="settings_cloud_sync_subtitle">Google Drive and OneDrive backups</string>
+    <string name="settings_cloud_sync_subtitle">Encrypted backup to your Google Drive</string>
     <string name="settings_auto_sync_title">Auto-sync</string>
     <string name="settings_auto_sync_subtitle">Back up changes automatically</string>
     <string name="settings_trash_title">Trash</string>
@@ -322,7 +322,7 @@
     <string name="result_not_a_backup">That file isn\'t a Quill backup, or it\'s damaged.</string>
     <string name="result_failed">Something went wrong. Nothing was changed.</string>
     <string name="privacy_title">Privacy</string>
-    <string name="privacy_body">Quill Notes keeps your notes on your phone, encrypted with AES-256-GCM using a key held in the Android Keystore.\n\nNothing is sent anywhere unless you choose to: cloud sync uploads notes to your own Google Drive or OneDrive, encrypted on your phone first with a passphrase only you know. We can\'t read them and neither can your cloud provider.\n\nThere are no ads, no analytics and no tracking. Crash reports are never sent automatically; if the app crashes, you may choose to share a short technical report that contains no note content.\n\nPhotos you attach are stored encrypted on your phone. Voice input uses your phone\'s speech recognition. Text scanning runs entirely on your phone.\n\nYou can export everything as Markdown at any time and delete all data by uninstalling the app.</string>
+    <string name="privacy_body">Quill Notes keeps your notes on your phone, encrypted with AES-256-GCM using a key held in the Android Keystore.\n\nNothing is sent anywhere unless you choose to: cloud sync uploads notes to the hidden app-data area of your own Google Drive, encrypted on your phone first with a passphrase only you know. We can\'t read them and neither can Google.\n\nThere are no ads, no analytics and no tracking. Crash reports are never sent automatically; if the app crashes, you may choose to share a short technical report that contains no note content.\n\nPhotos you attach are stored encrypted on your phone. Voice input uses your phone\'s speech recognition service, which may process audio under its own settings and privacy policy; Quill itself never receives or stores the audio. Text scanning runs entirely on your phone.\n\nYou can export everything as Markdown at any time and delete all data by uninstalling the app.</string>
     <string name="crash_prompt_title">Quill closed unexpectedly</string>
     <string name="crash_prompt_message">Would you like to share a short technical report to help fix it? It contains no notes or personal content, and nothing is sent unless you pick where to send it.</string>
     <string name="crash_prompt_share">Share report</string>

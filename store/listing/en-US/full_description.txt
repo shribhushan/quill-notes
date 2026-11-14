@@ -1,0 +1,37 @@
+Quill Notes keeps everything you write in one calm place: notes, a daily journal and a task planner. It keeps it private, too. Every note is encrypted on your phone, there is no account to create, and there are no ads.
+
+WRITE
+• Format with Markdown: headings, bold, italic, lists and links, with a one-tap toolbar
+• Checklists you can tick right from the note card; finished items sink to the bottom
+• Add photos from your gallery or camera
+• Link notes together with [[double brackets]] and see what links back
+• Tags, colours, notebooks, pinning, and an archive for notes you want out of the way
+• Templates for meeting notes, weekly reviews and book notes, plus your own
+• Dictate by voice, or scan the text in a photo of a page (recognised on your phone)
+
+JOURNAL
+• Pick a mood, keep your streak, browse a calendar and see how the month felt
+• "On this day" brings back earlier entries
+• An optional daily reminder at the time you choose
+
+PLAN
+• Tasks with due dates and times, priorities and checklists
+• Repeat daily, weekly, monthly or yearly: finishing a task starts the next round
+• A week view, a progress ring, and reminders with Done and Snooze buttons
+
+FIND ANYTHING
+• One search across notes, journal and tasks, with highlighted matches and filters
+
+PRIVATE BY DESIGN
+• AES-256-GCM encryption for titles, text, tags and moods, with the key held in the Android Keystore
+• Optional biometric lock for the whole app and for individual notes
+• No ads, no analytics, no tracking
+
+NEVER LOSE A NOTE
+• Optional encrypted backup to your own Google Drive. Notes are encrypted on your phone first, with a recovery passphrase only you know, so you can restore on a new phone and nobody else can read them
+• Export everything as Markdown whenever you like, or save one encrypted backup file
+
+MADE FOR YOUR PHONE
+• Home-screen widgets for quick capture and today's tasks, launcher shortcuts and a Quick Settings tile
+• Paper, Midnight and Aurora themes, plus colours from your wallpaper; adjustable text size; tablet and foldable layouts
+• English, हिन्दी and मराठी

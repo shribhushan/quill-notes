@@ -196,7 +196,7 @@ fun SyncContent(
             padding = PaddingValues(top = 26.dp, bottom = 10.dp)
         )
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SyncProvider.entries.filter { it != SyncProvider.NONE }.forEach { provider ->
+            SyncProvider.entries.filter { it.isAvailable }.forEach { provider ->
                 ProviderRow(
                     provider = provider,
                     connected = state.isConnected && state.provider == provider,
