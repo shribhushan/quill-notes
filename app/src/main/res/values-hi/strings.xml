@@ -366,8 +366,8 @@
     <string name="trash_delete_forever">हमेशा के लिए हटाएँ</string>
     <string name="sync_screen_title">क्लाउड सिंक</string>
     <string name="sync_eyebrow">बैकअप</string>
-    <string name="sync_switch_provider">प्रदाता बदलें</string>
-    <string name="sync_choose_provider">प्रदाता चुनें</string>
+    <string name="sync_switch_provider">क्लाउड प्रदाता</string>
+    <string name="sync_choose_provider">क्लाउड प्रदाता</string>
     <string name="sync_encryption_footer">नोट्स आपके फ़ोन से बाहर जाने से पहले AES-256-GCM से एन्क्रिप्ट किए जाते हैं। आपका क्लाउड प्रदाता उन्हें नहीं पढ़ सकता।</string>
     <string name="sync_backed_up_to">%1$s पर बैकअप लिया गया</string>
     <string name="sync_not_backed_up">अभी बैकअप नहीं लिया गया</string>
@@ -473,4 +473,5 @@
     <string name="a11y_selected">चुना गया</string>
     <string name="task_mark_complete">पूर्ण के रूप में चिह्नित करें</string>
     <string name="task_mark_incomplete">अपूर्ण के रूप में चिह्नित करें</string>
+    <string name="msg_camera_unavailable">इस फ़ोन पर कोई कैमरा ऐप उपलब्ध नहीं है</string>
 </resources>

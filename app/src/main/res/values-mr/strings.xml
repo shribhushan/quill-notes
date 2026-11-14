@@ -366,8 +366,8 @@
     <string name="trash_delete_forever">कायमचे हटवा</string>
     <string name="sync_screen_title">क्लाउड सिंक</string>
     <string name="sync_eyebrow">बॅकअप</string>
-    <string name="sync_switch_provider">प्रदाता बदला</string>
-    <string name="sync_choose_provider">प्रदाता निवडा</string>
+    <string name="sync_switch_provider">क्लाउड प्रदाता</string>
+    <string name="sync_choose_provider">क्लाउड प्रदाता</string>
     <string name="sync_encryption_footer">नोट्स तुमच्या फोनमधून बाहेर जाण्यापूर्वी AES-256-GCM ने एन्क्रिप्ट केल्या जातात. तुमचा क्लाउड प्रदाता त्या वाचू शकत नाही.</string>
     <string name="sync_backed_up_to">%1$s वर बॅकअप घेतला</string>
     <string name="sync_not_backed_up">अजून बॅकअप घेतलेला नाही</string>
@@ -473,4 +473,5 @@
     <string name="a11y_selected">निवडले</string>
     <string name="task_mark_complete">पूर्ण म्हणून चिन्हांकित करा</string>
     <string name="task_mark_incomplete">अपूर्ण म्हणून चिन्हांकित करा</string>
+    <string name="msg_camera_unavailable">या फोनवर कोणतेही कॅमेरा अॅप उपलब्ध नाही</string>
 </resources>

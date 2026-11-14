@@ -386,8 +386,8 @@
     <string name="trash_delete_forever">Delete forever</string>
     <string name="sync_screen_title">Cloud sync</string>
     <string name="sync_eyebrow">Backup</string>
-    <string name="sync_switch_provider">Switch provider</string>
-    <string name="sync_choose_provider">Choose a provider</string>
+    <string name="sync_switch_provider">Cloud provider</string>
+    <string name="sync_choose_provider">Cloud provider</string>
     <string name="sync_encryption_footer">Notes are encrypted with AES-256-GCM before they leave your phone. Your cloud provider can\'t read them.</string>
     <string name="sync_backed_up_to">Backed up to %1$s</string>
     <string name="sync_not_backed_up">Not backed up yet</string>
@@ -493,4 +493,5 @@
     <string name="a11y_selected">Selected</string>
     <string name="task_mark_complete">Mark complete</string>
     <string name="task_mark_incomplete">Mark incomplete</string>
+    <string name="msg_camera_unavailable">No camera app is available on this phone</string>
 </resources>

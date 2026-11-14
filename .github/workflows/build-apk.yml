@@ -161,7 +161,7 @@ jobs:
             adb uninstall com.quillnotes
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            adb shell am instrument -w -r -e class com.quillnotes.ScreenshotTest com.quillnotes.test/androidx.test.runner.AndroidJUnitRunner > instrument.log 2>&1 || true
+            adb shell am instrument -w -r -e class com.quillnotes.ScreenshotTest,com.quillnotes.MigrationTest com.quillnotes.test/androidx.test.runner.AndroidJUnitRunner > instrument.log 2>&1 || true
             cat instrument.log
             adb exec-out run-as com.quillnotes tar -c -C files screenshots > screenshots.tar || true
 

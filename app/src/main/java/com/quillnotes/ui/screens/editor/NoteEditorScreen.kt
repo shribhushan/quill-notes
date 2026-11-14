@@ -230,12 +230,18 @@ fun NoteEditorScreen(
         }
     }
     fun capture(forScan: Boolean) {
-        val dir = File(context.cacheDir, "captures").apply { mkdirs() }
-        val file = File.createTempFile("capture_", ".jpg", dir)
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        pendingCapture = uri
-        captureIsScan = forScan
-        takePicture.launch(uri)
+        try {
+            val dir = File(context.cacheDir, "captures").apply { mkdirs() }
+            val file = File.createTempFile("capture_", ".jpg", dir)
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            pendingCapture = uri
+            captureIsScan = forScan
+            takePicture.launch(uri)
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, R.string.msg_camera_unavailable, Toast.LENGTH_LONG).show()
+        } catch (e: java.io.IOException) {
+            Toast.makeText(context, R.string.msg_attach_failed, Toast.LENGTH_LONG).show()
+        }
     }
     val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val heard = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
