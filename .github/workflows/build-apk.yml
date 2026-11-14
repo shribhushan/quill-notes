@@ -144,7 +144,7 @@ jobs:
       - name: Build app and test APKs
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug assembleDebugAndroidTest --stacktrace
+          ./gradlew assembleDebug assembleSideload assembleDebugAndroidTest --stacktrace
 
       - name: Capture screenshots on emulator
         uses: reactivecircus/android-emulator-runner@v2
@@ -156,6 +156,9 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
+            adb install -r app/build/outputs/apk/sideload/app-sideload.apk
+            python3 .github/scripts/smoke.py smoke-out || true
+            adb uninstall com.quillnotes
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w -r -e class com.quillnotes.ScreenshotTest com.quillnotes.test/androidx.test.runner.AndroidJUnitRunner > instrument.log 2>&1 || true
@@ -170,6 +173,7 @@ jobs:
           mkdir -p /tmp/publish
           cp instrument.log /tmp/publish/instrument.log
           if [ -d /tmp/shots/screenshots ]; then cp -r /tmp/shots/screenshots /tmp/publish/screenshots; fi
+          if [ -d smoke-out ]; then cp -r smoke-out /tmp/publish/smoke; fi
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -179,6 +183,7 @@ jobs:
           echo "Built from commit: ${GITHUB_SHA}" > BUILD_INFO.txt
           git add instrument.log BUILD_INFO.txt
           if [ -d screenshots ]; then git add screenshots; fi
+          if [ -d smoke ]; then git add smoke; fi
           git commit -m "UI screenshots from ${GITHUB_SHA}"
           git push -f origin ui-screenshots-tmp:ui-screenshots
 
@@ -189,3 +194,8 @@ jobs:
             exit 1
           fi
           test -d /tmp/shots/screenshots
+          if ! head -n 1 smoke-out/result.txt 2>/dev/null | grep -q '^PASS'; then
+            echo "Smoke test of the installed APK did not pass:" >&2
+            cat smoke-out/result.txt >&2 || echo "(no result file: the smoke script did not finish)" >&2
+            exit 1
+          fi
