@@ -1,0 +1,31 @@
+device: sdk_gphone64_x86_64 / API 34
+app version: 2.3.0
+--> first-run onboarding
+    ok: first-run onboarding
+--> empty home screen
+    ok: empty home screen
+--> create a note with a list
+    list continuation after Enter: yes (2 bullet markers in '• Buy milk\n• Eggs')
+    ok: create a note with a list
+--> save and return home
+    ok: save and return home
+--> planner: add a task
+    FAILED: planner: add a task: could not find '^Add task$' on screen
+--> journal tab
+    ok: journal tab
+--> global search
+    FAILED: global search: searching 'milk' did not find the note
+--> settings
+    FAILED: settings: could not find 'settings' on screen
+--> switch to Hindi
+    set-app-locales hi: 
+    FAILED: switch to Hindi: could not find '(सेटिंग|settings)' on screen
+--> switch to Marathi
+    set-app-locales mr: 
+    FAILED: switch to Marathi: could not find '(प्लॅनर|Planner)' on screen
+RESULT: FAIL
+  - planner: add a task: could not find '^Add task$' on screen
+  - global search: searching 'milk' did not find the note
+  - settings: could not find 'settings' on screen
+  - switch to Hindi: could not find '(सेटिंग|settings)' on screen
+  - switch to Marathi: could not find '(प्लॅनर|Planner)' on screen
